@@ -220,3 +220,12 @@ export async function insertPhoto(db: SQLiteDatabase, photo: Omit<Photo, 'id'>):
 export function listPhotos(db: SQLiteDatabase, itemId: number): Promise<Photo[]> {
   return db.getAllAsync<Photo>('SELECT * FROM photo WHERE item_id = ? ORDER BY captured_at, id', itemId);
 }
+
+/** All photos of an inspection in one query, ordered by room, item, then capture time. */
+export function listInspectionPhotos(db: SQLiteDatabase, inspectionId: number): Promise<Photo[]> {
+  return db.getAllAsync<Photo>(
+    `SELECT p.* FROM photo p JOIN item it ON it.id = p.item_id JOIN room r ON r.id = it.room_id
+     WHERE r.inspection_id = ? ORDER BY r.sort, it.sort, p.captured_at, p.id`,
+    inspectionId,
+  );
+}

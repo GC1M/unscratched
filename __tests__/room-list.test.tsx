@@ -120,3 +120,15 @@ test('cancelling the Finish confirmation does not finish', async () => {
   await fireEvent.press(screen.getByRole('button', { name: 'Finish inspection' }));
   expect(r.finishInspection).not.toHaveBeenCalled();
 });
+
+test('Export report shows only for a finished inspection and opens the export screen', async () => {
+  const { router } = jest.requireMock('expo-router');
+  await render(<RoomList />);
+  await screen.findByText('Kitchen');
+  expect(screen.queryByLabelText('Export report')).toBeNull();
+
+  r.getInspection.mockResolvedValue({ id: 1, address: '1 Main St', finished_at: 5 } as never);
+  await render(<RoomList />);
+  await fireEvent.press(await screen.findByLabelText('Export report'));
+  expect(router.push).toHaveBeenCalledWith('/inspection/1/export');
+});
