@@ -145,8 +145,12 @@ export async function deleteInspection(db: SQLiteDatabase, id: number): Promise<
 // Rows go first, so a failed file delete leaves an orphan file, never a row pointing at a missing file.
 function deletePhotoFiles(photos: Pick<Photo, 'file_uri'>[]): void {
   for (const p of photos) {
-    const file = new File(Paths.document, p.file_uri);
-    if (file.exists) file.delete();
+    try {
+      const file = new File(Paths.document, p.file_uri);
+      if (file.exists) file.delete();
+    } catch {
+      // The rows are already gone; an orphan file is harmless, so keep deleting the rest.
+    }
   }
 }
 
