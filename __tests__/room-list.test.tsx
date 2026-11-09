@@ -1,0 +1,93 @@
+import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+
+import * as repo from '@/db/repo';
+import type { Room } from '@/db/types';
+
+import RoomList from '../app/inspection/[id]/index';
+
+jest.mock('@/db/client', () => ({ getDb: jest.fn(async () => ({})) }));
+jest.mock('@/db/repo');
+jest.mock('expo-router', () => {
+  const { useEffect } = jest.requireActual('react');
+  return {
+    Stack: { Screen: () => null },
+    router: { push: jest.fn() },
+    useLocalSearchParams: () => ({ id: '1' }),
+    useFocusEffect: (cb: () => void) => useEffect(cb, [cb]),
+  };
+});
+
+const r = jest.mocked(repo);
+let rooms: Room[];
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  rooms = [
+    { id: 10, inspection_id: 1, name: 'Kitchen', sort: 0 },
+    { id: 11, inspection_id: 1, name: 'Bath', sort: 1 },
+  ];
+  r.getInspection.mockResolvedValue({ id: 1, address: '1 Main St' } as never);
+  r.listRooms.mockImplementation(async () => rooms);
+  r.listItems.mockImplementation(async (_db, roomId) =>
+    roomId === 10
+      ? [
+          { id: 1, room_id: 10, name: 'Walls', condition: 'good', note: null, sort: 0 },
+          { id: 2, room_id: 10, name: 'Floor', condition: null, note: null, sort: 1 },
+        ]
+      : [],
+  );
+});
+
+test('lists rooms with item progress', async () => {
+  await render(<RoomList />);
+  expect(await screen.findByText('Kitchen')).toBeOnTheScreen();
+  expect(screen.getByText('1/2 items')).toBeOnTheScreen();
+  expect(screen.getByText('0/0 items')).toBeOnTheScreen();
+});
+
+test('adding a room shows it in the list', async () => {
+  r.addRoom.mockImplementation(async (_db, _insp, name) => {
+    rooms = [...rooms, { id: 12, inspection_id: 1, name, sort: 2 }];
+    return 12;
+  });
+  await render(<RoomList />);
+  await screen.findByText('Kitchen');
+  await fireEvent.changeText(screen.getByLabelText('New room name'), 'Hall');
+  await fireEvent.press(screen.getByLabelText('Add room'));
+  expect(r.addRoom).toHaveBeenCalledWith({}, 1, 'Hall');
+  expect(await screen.findByText('Hall')).toBeOnTheScreen();
+});
+
+test('deleting a room asks for confirmation, then removes it', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
+    buttons?.find((b) => b.style === 'destructive')?.onPress?.();
+  });
+  r.deleteRoom.mockImplementation(async (_db, id) => {
+    rooms = rooms.filter((x) => x.id !== id);
+  });
+  await render(<RoomList />);
+  await screen.findByText('Bath');
+  await fireEvent.press(screen.getByLabelText('Delete Bath'));
+  expect(alert).toHaveBeenCalled();
+  expect(r.deleteRoom).toHaveBeenCalledWith({}, 11);
+  expect(screen.queryByText('Bath')).toBeNull();
+});
+
+test('Up and Down call moveRoom', async () => {
+  await render(<RoomList />);
+  await screen.findByText('Bath');
+  await fireEvent.press(screen.getByLabelText('Move Bath up'));
+  expect(r.moveRoom).toHaveBeenCalledWith({}, 11, 'up');
+  await fireEvent.press(screen.getByLabelText('Move Kitchen down'));
+  expect(r.moveRoom).toHaveBeenCalledWith({}, 10, 'down');
+});
+
+test('rename inline saves the new name', async () => {
+  await render(<RoomList />);
+  await screen.findByText('Kitchen');
+  await fireEvent.press(screen.getByLabelText('Rename Kitchen'));
+  await fireEvent.changeText(screen.getByLabelText('Room name'), 'Galley');
+  await fireEvent.press(screen.getByLabelText('Save'));
+  expect(r.renameRoom).toHaveBeenCalledWith({}, 10, 'Galley');
+});
