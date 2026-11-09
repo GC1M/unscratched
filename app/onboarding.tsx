@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
@@ -32,13 +32,13 @@ export default function Onboarding() {
       <View style={styles.top}>
         <Button label="Skip" variant="tertiary" onPress={finish} testID="onboarding-skip" />
       </View>
-      <View style={styles.body}>
+      <ScrollView contentContainerStyle={styles.body}>
         <Text style={[styles.title, { color: c.ink }]} accessibilityRole="header">
           {page.title}
         </Text>
         <Text style={[styles.text, { color: c.ink60 }]}>{page.body}</Text>
-      </View>
-      <View style={styles.dots} accessibilityLabel={`Page ${step + 1} of ${PAGES.length}`}>
+      </ScrollView>
+      <View style={styles.dots} accessible accessibilityLabel={`Page ${step + 1} of ${PAGES.length}`}>
         {PAGES.map((p, idx) => (
           <View key={p.title} style={[styles.dot, { backgroundColor: idx === step ? c.ink : c.ink30 }]} />
         ))}
@@ -51,7 +51,7 @@ export default function Onboarding() {
 const styles = StyleSheet.create({
   screen: { flex: 1, paddingHorizontal: 16, paddingBottom: 12 },
   top: { minHeight: 52, alignItems: 'flex-end' },
-  body: { flex: 1, justifyContent: 'center', gap: 16 },
+  body: { flexGrow: 1, justifyContent: 'center', gap: 16, paddingVertical: 16 },
   title: { fontFamily: serif, fontSize: 34, lineHeight: 40 },
   text: { fontSize: 17, lineHeight: 24 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 24 },

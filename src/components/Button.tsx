@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
   spread: { justifyContent: 'space-between' },
   glass: { overflow: 'hidden' },
   flat: { borderWidth: 1.5 },
-  label: { fontSize: 17, fontWeight: '600' },
+  label: { flexShrink: 1, fontSize: 17, fontWeight: '600' },
   trailing: { fontSize: 15, opacity: 0.7 },
   pressed: { transform: [{ scale: 0.97 }], opacity: 0.9 },
   disabled: { opacity: 0.38 },

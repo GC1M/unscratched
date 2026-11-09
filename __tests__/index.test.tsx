@@ -68,3 +68,16 @@ test('shows the empty state and the new inspection button', async () => {
   await fireEvent.press(screen.getByRole('button', { name: 'Settings' }));
   expect(router.push).toHaveBeenCalledWith('/settings');
 });
+
+test('shows a spinner while loading, then a DB error with a working retry', async () => {
+  jest.mocked(listInspections).mockReturnValueOnce(new Promise(() => {}));
+  await render(<Home />);
+  expect(screen.getByLabelText('Loading')).toBeOnTheScreen();
+
+  jest.mocked(listInspections).mockRejectedValueOnce(new Error('disk I/O error')).mockResolvedValueOnce([]);
+  await render(<Home />);
+  expect(await screen.findByText('Could not load inspections')).toBeOnTheScreen();
+  expect(screen.getByText('disk I/O error')).toBeOnTheScreen();
+  await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+  expect(await screen.findByText('No inspections yet')).toBeOnTheScreen();
+});

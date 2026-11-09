@@ -6,6 +6,29 @@ import { migrate, migrations } from './migrations';
 import * as repo from './repo';
 import { expandTemplate } from '../templates/rooms';
 
+// Photo files: uris that exist, and the ones repo deleted.
+const mockExisting = new Set<string>();
+const mockDeleted: string[] = [];
+jest.mock('expo-file-system', () => ({
+  Paths: { document: { uri: 'file:///docs' } },
+  File: class {
+    uri: string;
+    constructor(dir: { uri: string }, name: string) {
+      this.uri = `${dir.uri}/${name}`;
+    }
+    get exists() {
+      return mockExisting.has(this.uri);
+    }
+    delete() {
+      mockDeleted.push(this.uri);
+    }
+  },
+}));
+beforeEach(() => {
+  mockExisting.clear();
+  mockDeleted.length = 0;
+});
+
 // Fake SQLiteDatabase backed by Node's built-in SQLite, implementing only the methods src/db uses.
 function fakeDb() {
   const raw = new DatabaseSync(':memory:');
@@ -206,6 +229,46 @@ describe('repo', () => {
     expect(count(raw, 'room')).toBe(1);
     expect(count(raw, 'item')).toBe(0);
     expect(count(raw, 'photo')).toBe(0);
+  });
+
+  test('deleting an inspection removes its photo files, keeps others, and unlinks its move-out', async () => {
+    const { raw, db } = await setup();
+    const photo = (item_id: number, file_uri: string) =>
+      repo.insertPhoto(db, { item_id, file_uri, sha256: file_uri, captured_at: 1, width: 1, height: 1, source: 'camera' });
+    const insp = await repo.createInspection(db, { address: 'x' });
+    const kitchen = await repo.addRoom(db, insp, 'Kitchen');
+    await photo(await repo.addItem(db, kitchen, 'Walls'), 'photos/a.jpg');
+    await photo(await repo.addItem(db, await repo.addRoom(db, insp, 'Bath'), 'Tub'), 'photos/b.jpg');
+    await photo(await repo.addItem(db, kitchen, 'Floor'), 'photos/gone.jpg');
+    const other = await repo.createInspection(db, { address: 'y' });
+    await photo(await repo.addItem(db, await repo.addRoom(db, other, 'Hall'), 'Door'), 'photos/keep.jpg');
+    await repo.finishInspection(db, insp);
+    const moveOut = await repo.copyFromMoveIn(db, insp);
+    ['a', 'b', 'keep'].forEach((n) => mockExisting.add(`file:///docs/photos/${n}.jpg`));
+
+    await repo.deleteInspection(db, insp);
+
+    expect(mockDeleted.sort()).toEqual(['file:///docs/photos/a.jpg', 'file:///docs/photos/b.jpg']);
+    expect(await repo.getInspection(db, insp)).toBeNull();
+    expect(count(raw, 'photo')).toBe(1);
+    expect(await repo.getInspection(db, moveOut)).toMatchObject({ kind: 'move_out', linked_move_in_id: null });
+    expect((await repo.listRooms(db, moveOut)).map((r) => r.name)).toEqual(['Kitchen', 'Bath']);
+  });
+
+  test('deleting a room or an item removes their photo files', async () => {
+    const { db } = await setup();
+    const insp = await repo.createInspection(db, { address: 'x' });
+    const room = await repo.addRoom(db, insp, 'Kitchen');
+    const walls = await repo.addItem(db, room, 'Walls');
+    const floor = await repo.addItem(db, room, 'Floor');
+    for (const [item, uri] of [[walls, 'w.jpg'], [floor, 'f.jpg']] as const) {
+      await repo.insertPhoto(db, { item_id: item, file_uri: uri, sha256: uri, captured_at: 1, width: 1, height: 1, source: 'camera' });
+      mockExisting.add(`file:///docs/${uri}`);
+    }
+    await repo.deleteItem(db, walls);
+    expect(mockDeleted).toEqual(['file:///docs/w.jpg']);
+    await repo.deleteRoom(db, room);
+    expect(mockDeleted).toEqual(['file:///docs/w.jpg', 'file:///docs/f.jpg']);
   });
 
   test('listInspectionItems returns every item of one inspection in room then item order', async () => {

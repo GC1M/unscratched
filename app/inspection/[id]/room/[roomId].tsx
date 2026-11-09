@@ -8,9 +8,10 @@ import { FinishedBanner } from '@/components/FinishedBanner';
 import { Group, Row, RowMeta, RowTitle } from '@/components/Group';
 import { InlineInput } from '@/components/InlineInput';
 import { Floating, Screen } from '@/components/Screen';
+import { Loading, Problem, errorMessage } from '@/components/Status';
 import { getDb } from '@/db/client';
 import { addItem, countPhotosByItem, deleteItem, getInspection, getRoom, listItems, renameItem } from '@/db/repo';
-import type { Item } from '@/db/types';
+import type { Item, Room } from '@/db/types';
 import { nextUnchecked } from '@/lib/next';
 import { useTheme } from '@/theme';
 
@@ -19,7 +20,9 @@ export default function RoomItems() {
   const params = useLocalSearchParams<{ id: string; roomId: string }>();
   const inspectionId = Number(params.id);
   const roomId = Number(params.roomId);
-  const [roomName, setRoomName] = useState('');
+  // undefined while loading, null when it no longer exists.
+  const [room, setRoom] = useState<Room | null | undefined>(undefined);
+  const [error, setError] = useState<unknown>(null);
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [photos, setPhotos] = useState<Map<number, number>>(new Map());
@@ -28,14 +31,21 @@ export default function RoomItems() {
   const [adding, setAdding] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const db = await getDb();
-    const [room, list, counts, inspection] = await Promise.all([
-      getRoom(db, roomId),
-      listItems(db, roomId),
-      countPhotosByItem(db, roomId),
-      getInspection(db, inspectionId),
-    ]);
-    setRoomName(room?.name ?? '');
+    setError(null);
+    let found, list, counts, inspection;
+    try {
+      const db = await getDb();
+      [found, list, counts, inspection] = await Promise.all([
+        getRoom(db, roomId),
+        listItems(db, roomId),
+        countPhotosByItem(db, roomId),
+        getInspection(db, inspectionId),
+      ]);
+    } catch (e) {
+      setError(e);
+      return;
+    }
+    setRoom(found);
     setItems(list);
     setPhotos(counts);
     setFinishedAt(inspection?.finished_at ?? null);
@@ -48,7 +58,11 @@ export default function RoomItems() {
   );
 
   const run = async (action: (db: Awaited<ReturnType<typeof getDb>>) => Promise<unknown>) => {
-    await action(await getDb());
+    try {
+      await action(await getDb());
+    } catch (e) {
+      Alert.alert('Something went wrong', errorMessage(e));
+    }
     await load();
   };
 
@@ -82,9 +96,25 @@ export default function RoomItems() {
     return n === 0 ? cond : `${cond}, ${n} ${n === 1 ? 'photo' : 'photos'}`;
   };
 
+  if (error || room === null)
+    return (
+      <Screen>
+        {error ? (
+          <Problem title="Could not load this room" body={errorMessage(error)} onRetry={load} />
+        ) : (
+          <Problem title="Room not found" body="It may have been deleted." />
+        )}
+      </Screen>
+    );
+  if (room === undefined)
+    return (
+      <Screen>
+        <Loading />
+      </Screen>
+    );
   return (
     <>
-      <Stack.Screen options={{ title: roomName }}>
+      <Stack.Screen options={{ title: room.name }}>
         {!locked && (
           <Stack.Toolbar placement="right">
             <Stack.Toolbar.Button accessibilityLabel={editing ? 'Done editing' : 'Edit items'} onPress={() => setEditing((e) => !e)}>
@@ -124,7 +154,7 @@ export default function RoomItems() {
                       hitSlop={10}
                       style={[styles.minus, { backgroundColor: c.damaged }]}
                     >
-                      <Text style={[styles.minusText, { color: c.onInk }]}>−</Text>
+                      <Text maxFontSizeMultiplier={1} style={[styles.minusText, { color: c.onInk }]}>−</Text>
                     </Pressable>
                   ) : (
                     <ConditionMark condition={item.condition} />
@@ -141,7 +171,7 @@ export default function RoomItems() {
             (adding != null ? (
               <InlineInput value={adding} onChangeText={setAdding} onSubmit={add} onCancel={() => setAdding(null)} placeholder="Item name" a11y="New item name" submitLabel="Add" />
             ) : (
-              <Row first={items.length === 0} onPress={() => setAdding('')} a11y="Add item" trailing={<View />} leading={<View style={[styles.plus, { borderColor: c.ink30 }]}><Text style={[styles.plusText, { color: c.ink60 }]}>+</Text></View>}>
+              <Row first={items.length === 0} onPress={() => setAdding('')} a11y="Add item" trailing={<View />} leading={<View style={[styles.plus, { borderColor: c.ink30 }]}><Text maxFontSizeMultiplier={1} style={[styles.plusText, { color: c.ink60 }]}>+</Text></View>}>
                 <Text style={[styles.addText, { color: c.ink60 }]}>Add item</Text>
               </Row>
             ))}

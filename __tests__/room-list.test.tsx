@@ -66,6 +66,8 @@ test('shows fair and damaged tallies per room', async () => {
   await render(<RoomList />);
   await screen.findByText('Kitchen');
   expect(screen.getAllByText('1')).toHaveLength(3);
+  expect(screen.getByRole('button', { name: 'Open Kitchen, 2 of 2 items, 1 fair, 1 damaged' })).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Open Bath, 1 of 1 items, 1 damaged' })).toBeOnTheScreen();
 });
 
 test('adding a room shows it in the list', async () => {
@@ -215,4 +217,47 @@ test('Start move-out failure shows an alert instead of navigating', async () => 
   await fireEvent.press(await screen.findByLabelText('Start move-out'));
   expect(alert).toHaveBeenCalledWith('Could not start move-out', 'Only a finished move-in can start a move-out.');
   expect(router.push).not.toHaveBeenCalled();
+});
+
+test('Delete inspection asks first, deletes, then goes back; Cancel deletes nothing', async () => {
+  const { router } = jest.requireMock('expo-router');
+  let choice = 'Cancel';
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
+    buttons?.find((b) => b.text === choice)?.onPress?.();
+  });
+  await render(<RoomList />);
+  expect(await screen.findByRole('button', { name: 'Delete inspection' })).toBeOnTheScreen();
+  await fireEvent.press(screen.getByTestId('delete-inspection'));
+  expect(alert).toHaveBeenCalledWith('Delete this inspection?', expect.stringContaining('cannot be undone'), expect.any(Array));
+  expect(r.deleteInspection).not.toHaveBeenCalled();
+
+  choice = 'Delete';
+  await fireEvent.press(screen.getByTestId('delete-inspection'));
+  expect(r.deleteInspection).toHaveBeenCalledWith({}, 1);
+  expect(router.back).toHaveBeenCalled();
+});
+
+test('a failed delete shows an alert and stays', async () => {
+  const { router } = jest.requireMock('expo-router');
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
+    buttons?.find((b) => b.text === 'Delete')?.onPress?.();
+  });
+  r.deleteInspection.mockRejectedValue(new Error('disk full'));
+  await render(<RoomList />);
+  await fireEvent.press(await screen.findByTestId('delete-inspection'));
+  expect(alert).toHaveBeenLastCalledWith('Could not delete inspection', 'disk full');
+  expect(router.back).not.toHaveBeenCalled();
+});
+
+test('a load failure shows the error with a retry; a missing inspection says so', async () => {
+  r.listRooms.mockRejectedValueOnce(new Error('database is locked'));
+  await render(<RoomList />);
+  expect(await screen.findByText('Could not load this inspection')).toBeOnTheScreen();
+  expect(screen.getByText('database is locked')).toBeOnTheScreen();
+  await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+  expect(await screen.findByText('Kitchen')).toBeOnTheScreen();
+
+  r.getInspection.mockResolvedValue(null);
+  await render(<RoomList />);
+  expect(await screen.findByText('Inspection not found')).toBeOnTheScreen();
 });

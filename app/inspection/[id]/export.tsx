@@ -6,6 +6,7 @@ import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { SectionLabel } from '@/components/Group';
 import { Screen } from '@/components/Screen';
+import { errorMessage } from '@/components/Status';
 import { getDb } from '@/db/client';
 import { getInspection } from '@/db/repo';
 import { exportReport } from '@/report/export';
@@ -29,7 +30,7 @@ export default function ExportReport() {
       setDate(inspection?.finished_at ?? Date.now());
       setTenant(inspection?.tenant_name ?? '');
       setLandlord(inspection?.landlord_name ?? '');
-    })();
+    })().catch((e: unknown) => Alert.alert('Could not load inspection', errorMessage(e)));
   }, [inspectionId]);
 
   const disabled = busy || date == null || !tenant.trim();

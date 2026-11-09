@@ -1,3 +1,4 @@
+import { File, Paths } from 'expo-file-system';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { expandTemplate } from '../templates/rooms';
@@ -125,8 +126,32 @@ export async function finishInspection(db: SQLiteDatabase, id: number): Promise<
   await db.runAsync('UPDATE inspection SET finished_at = ? WHERE id = ?', Date.now(), id);
 }
 
+/**
+ * Deletes the inspection, its rooms, items, and photo rows (FK cascade), then its photo files.
+ * - Allowed when finished: the lock stops swapping evidence, not discarding all of it.
+ * - A move-out started from it is kept; its linked_move_in_id becomes null (ON DELETE SET NULL).
+ * - Receipts are kept: they hold only a hash and a server time, and verification works from the server.
+ *   The receipt queue is derived from photo rows, so nothing is left pending.
+ */
 export async function deleteInspection(db: SQLiteDatabase, id: number): Promise<void> {
-  await db.runAsync('DELETE FROM inspection WHERE id = ?', id);
+  let photos: Photo[] = [];
+  await db.withTransactionAsync(async () => {
+    photos = await listInspectionPhotos(db, id);
+    await db.runAsync('DELETE FROM inspection WHERE id = ?', id);
+  });
+  deletePhotoFiles(photos);
+}
+
+// Rows go first, so a failed file delete leaves an orphan file, never a row pointing at a missing file.
+function deletePhotoFiles(photos: Pick<Photo, 'file_uri'>[]): void {
+  for (const p of photos) {
+    try {
+      const file = new File(Paths.document, p.file_uri);
+      if (file.exists) file.delete();
+    } catch {
+      // The rows are already gone; an orphan file is harmless, so keep deleting the rest.
+    }
+  }
 }
 
 // Rooms
@@ -156,10 +181,12 @@ export async function renameRoom(db: SQLiteDatabase, roomId: number, name: strin
 }
 
 export async function deleteRoom(db: SQLiteDatabase, roomId: number): Promise<void> {
+  let photos: Photo[] = [];
   await db.withTransactionAsync(async () => {
     await assertEditable(db, 'room', roomId);
     const room = await db.getFirstAsync<Room>('SELECT * FROM room WHERE id = ?', roomId);
     if (!room) return;
+    photos = await db.getAllAsync<Photo>('SELECT p.* FROM photo p JOIN item it ON it.id = p.item_id WHERE it.room_id = ?', roomId);
     await db.runAsync('DELETE FROM room WHERE id = ?', roomId);
     await db.runAsync(
       'UPDATE room SET sort = sort - 1 WHERE inspection_id = ? AND sort > ?',
@@ -167,6 +194,7 @@ export async function deleteRoom(db: SQLiteDatabase, roomId: number): Promise<vo
       room.sort,
     );
   });
+  deletePhotoFiles(photos);
 }
 
 /** Swaps the room with its neighbor. Moving past either end is a no-op. */
@@ -223,7 +251,9 @@ export async function renameItem(db: SQLiteDatabase, itemId: number, name: strin
 
 export async function deleteItem(db: SQLiteDatabase, itemId: number): Promise<void> {
   await assertEditable(db, 'item', itemId);
+  const photos = await listPhotos(db, itemId);
   await db.runAsync('DELETE FROM item WHERE id = ?', itemId);
+  deletePhotoFiles(photos);
 }
 
 export async function setCondition(db: SQLiteDatabase, itemId: number, condition: Condition | null): Promise<void> {

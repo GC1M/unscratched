@@ -9,10 +9,12 @@ import { Group, Row, RowTitle } from '@/components/Group';
 import { InlineInput } from '@/components/InlineInput';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Floating, Screen } from '@/components/Screen';
+import { Loading, Problem, errorMessage } from '@/components/Status';
 import { getDb } from '@/db/client';
 import {
   addRoom,
   copyFromMoveIn,
+  deleteInspection,
   deleteRoom,
   finishInspection,
   getInspection,
@@ -34,7 +36,9 @@ type RoomRow = Room & { done: number; total: number; fair: number; damaged: numb
 export default function RoomList() {
   const { c } = useTheme();
   const inspectionId = Number(useLocalSearchParams<{ id: string }>().id);
-  const [inspection, setInspection] = useState<Inspection | null>(null);
+  // undefined while loading, null when it no longer exists.
+  const [inspection, setInspection] = useState<Inspection | null | undefined>(undefined);
+  const [error, setError] = useState<unknown>(null);
   const [summary, setSummary] = useState<Progress | null>(null);
   const [next, setNext] = useState<Room | null>(null);
   const [rooms, setRooms] = useState<RoomRow[]>([]);
@@ -43,14 +47,22 @@ export default function RoomList() {
   const [adding, setAdding] = useState<string | null>(null);
   const [comparing, setComparing] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
-    const db = await getDb();
-    const [found, list, items] = await Promise.all([
-      getInspection(db, inspectionId),
-      listRooms(db, inspectionId),
-      listInspectionItems(db, inspectionId),
-    ]);
+    setError(null);
+    let found, list, items;
+    try {
+      const db = await getDb();
+      [found, list, items] = await Promise.all([
+        getInspection(db, inspectionId),
+        listRooms(db, inspectionId),
+        listInspectionItems(db, inspectionId),
+      ]);
+    } catch (e) {
+      setError(e);
+      return;
+    }
     setInspection(found);
     setSummary(progress(list, items));
     setNext(nextRoom(list, items));
@@ -75,7 +87,11 @@ export default function RoomList() {
   );
 
   const run = async (action: (db: Awaited<ReturnType<typeof getDb>>) => Promise<unknown>) => {
-    await action(await getDb());
+    try {
+      await action(await getDb());
+    } catch (e) {
+      Alert.alert('Something went wrong', errorMessage(e));
+    }
     await load();
   };
 
@@ -116,13 +132,37 @@ export default function RoomList() {
       ],
     );
 
+  const remove = async () => {
+    setDeleting(true);
+    try {
+      await deleteInspection(await getDb(), inspectionId);
+      router.back();
+    } catch (e) {
+      setDeleting(false);
+      Alert.alert('Could not delete inspection', errorMessage(e));
+    }
+  };
+
+  // Finished inspections can be deleted too: the lock stops swapping evidence, not discarding all of it.
+  const confirmDeleteInspection = () =>
+    Alert.alert(
+      'Delete this inspection?',
+      `All rooms, notes and photos will be permanently removed from this phone. This cannot be undone.${
+        inspection?.kind === 'move_in' ? ' A move-out started from it is kept, but can no longer be compared.' : ''
+      }`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: remove },
+      ],
+    );
+
   const shareComparison = async () => {
     if (comparing) return;
     setComparing(true);
     try {
       await exportComparison(await getDb(), inspectionId);
     } catch (e) {
-      Alert.alert('Comparison export failed', e instanceof Error ? e.message : String(e));
+      Alert.alert('Comparison export failed', errorMessage(e));
     } finally {
       setComparing(false);
     }
@@ -135,7 +175,7 @@ export default function RoomList() {
       const id = await copyFromMoveIn(await getDb(), inspectionId);
       router.push(`/inspection/${id}`);
     } catch (e) {
-      Alert.alert('Could not start move-out', e instanceof Error ? e.message : String(e));
+      Alert.alert('Could not start move-out', errorMessage(e));
     } finally {
       setStarting(false);
     }
@@ -146,9 +186,26 @@ export default function RoomList() {
   const allDone = !!summary && summary.itemsTotal > 0 && summary.roomsDone === summary.roomsTotal;
   const roomsLeft = summary ? summary.roomsTotal - summary.roomsDone : 0;
 
+  if (error || inspection === null)
+    return (
+      <Screen>
+        {error ? (
+          <Problem title="Could not load this inspection" body={errorMessage(error)} onRetry={load} />
+        ) : (
+          <Problem title="Inspection not found" body="It may have been deleted." />
+        )}
+      </Screen>
+    );
+  if (inspection === undefined)
+    return (
+      <Screen>
+        <Loading />
+      </Screen>
+    );
+
   return (
     <>
-      <Stack.Screen options={{ title: inspection?.address ?? '' }}>
+      <Stack.Screen options={{ title: inspection.address }}>
         {!locked && (
           <Stack.Toolbar placement="right">
             <Stack.Toolbar.Button accessibilityLabel={editing ? 'Done editing' : 'Edit rooms'} onPress={() => setEditing((e) => !e)}>
@@ -185,7 +242,7 @@ export default function RoomList() {
                 key={room.id}
                 first={idx === 0}
                 onPress={editing ? () => setRenaming({ id: room.id, name: room.name }) : () => router.push(`/inspection/${inspectionId}/room/${room.id}`)}
-                a11y={editing ? `Rename ${room.name}` : `Open ${room.name}, ${room.done} of ${room.total} items`}
+                a11y={editing ? `Rename ${room.name}` : `Open ${room.name}, ${room.done} of ${room.total} items${room.fair ? `, ${room.fair} fair` : ''}${room.damaged ? `, ${room.damaged} damaged` : ''}`}
                 leading={
                   editing ? (
                     <Pressable
@@ -195,7 +252,7 @@ export default function RoomList() {
                       hitSlop={10}
                       style={[styles.minus, { backgroundColor: c.damaged }]}
                     >
-                      <Text style={[styles.minusText, { color: c.onInk }]}>−</Text>
+                      <Text maxFontSizeMultiplier={1} style={[styles.minusText, { color: c.onInk }]}>−</Text>
                     </Pressable>
                   ) : undefined
                 }
@@ -203,10 +260,10 @@ export default function RoomList() {
                   editing ? (
                     <View style={styles.reorder}>
                       <Pressable accessibilityRole="button" accessibilityLabel={`Move ${room.name} up`} hitSlop={8} onPress={() => run((db) => moveRoom(db, room.id, 'up'))} style={styles.arrow}>
-                        <Text style={[styles.arrowText, { color: c.ink60 }]}>↑</Text>
+                        <Text maxFontSizeMultiplier={1} style={[styles.arrowText, { color: c.ink60 }]}>↑</Text>
                       </Pressable>
                       <Pressable accessibilityRole="button" accessibilityLabel={`Move ${room.name} down`} hitSlop={8} onPress={() => run((db) => moveRoom(db, room.id, 'down'))} style={styles.arrow}>
-                        <Text style={[styles.arrowText, { color: c.ink60 }]}>↓</Text>
+                        <Text maxFontSizeMultiplier={1} style={[styles.arrowText, { color: c.ink60 }]}>↓</Text>
                       </Pressable>
                     </View>
                   ) : (
@@ -239,11 +296,20 @@ export default function RoomList() {
             (adding != null ? (
               <InlineInput value={adding} onChangeText={setAdding} onSubmit={add} onCancel={() => setAdding(null)} placeholder="Room name" a11y="New room name" submitLabel="Add" />
             ) : (
-              <Row first={rooms.length === 0} onPress={() => setAdding('')} a11y="Add room" trailing={<View />} leading={<View style={[styles.plus, { borderColor: c.ink30 }]}><Text style={[styles.plusText, { color: c.ink60 }]}>+</Text></View>}>
+              <Row first={rooms.length === 0} onPress={() => setAdding('')} a11y="Add room" trailing={<View />} leading={<View style={[styles.plus, { borderColor: c.ink30 }]}><Text maxFontSizeMultiplier={1} style={[styles.plusText, { color: c.ink60 }]}>+</Text></View>}>
                 <Text style={[styles.addText, { color: c.ink60 }]}>Add room</Text>
               </Row>
             ))}
         </Group>
+        <Button
+          label={deleting ? 'Deleting' : 'Delete inspection'}
+          a11y="Delete inspection"
+          testID="delete-inspection"
+          variant="danger"
+          onPress={confirmDeleteInspection}
+          busy={deleting}
+          style={styles.delete}
+        />
       </Screen>
       {!editing && (
         <Floating>
@@ -275,6 +341,7 @@ export default function RoomList() {
 const styles = StyleSheet.create({
   subtitle: { fontSize: 15, marginTop: -4, marginBottom: 12, marginLeft: 4 },
   stack: { gap: 8 },
+  delete: { marginTop: 32 },
   progress: { marginBottom: 16, marginHorizontal: 4 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   tally: { flexDirection: 'row', alignItems: 'center', gap: 4 },
