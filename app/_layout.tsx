@@ -1,6 +1,5 @@
 import { Newsreader_400Regular, Newsreader_400Regular_Italic, useFonts } from '@expo-google-fonts/newsreader';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
@@ -21,6 +20,8 @@ function Navigator() {
           headerShadowVisible: false,
           headerTintColor: c.ink,
           headerBackButtonDisplayMode: 'minimal',
+          // Info.plist opts into view-controller based status bar appearance, so the stack owns the style.
+          statusBarStyle: scheme === 'dark' ? 'light' : 'dark',
           headerLargeTitleStyle: { fontFamily: serif, fontSize: 34, color: c.ink },
           headerTitleStyle: { color: c.ink },
           contentStyle: { backgroundColor: c.plaster },
@@ -28,7 +29,6 @@ function Navigator() {
       >
         <Stack.Screen name="index" options={{ title: 'Unscratched', headerLargeTitleStyle: { fontSize: 34, color: c.ink } }} />
       </Stack>
-      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
     </>
   );
 }
