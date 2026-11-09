@@ -16,7 +16,9 @@ export function Problem({ title, body, onRetry }: { title: string; body: string;
   const { c } = useTheme();
   return (
     <View style={styles.problem} accessibilityRole="alert">
-      <Text style={[styles.title, { color: c.ink }]}>{title}</Text>
+      <Text accessibilityRole="header" style={[styles.title, { color: c.ink }]}>
+        {title}
+      </Text>
       <Text style={[styles.body, { color: c.ink60 }]}>{body}</Text>
       {onRetry && <Button label="Try again" variant="secondary" onPress={onRetry} style={styles.retry} />}
     </View>

@@ -66,6 +66,8 @@ test('shows fair and damaged tallies per room', async () => {
   await render(<RoomList />);
   await screen.findByText('Kitchen');
   expect(screen.getAllByText('1')).toHaveLength(3);
+  expect(screen.getByRole('button', { name: 'Open Kitchen, 2 of 2 items, 1 fair, 1 damaged' })).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Open Bath, 1 of 1 items, 1 damaged' })).toBeOnTheScreen();
 });
 
 test('adding a room shows it in the list', async () => {
@@ -224,7 +226,8 @@ test('Delete inspection asks first, deletes, then goes back; Cancel deletes noth
     buttons?.find((b) => b.text === choice)?.onPress?.();
   });
   await render(<RoomList />);
-  await fireEvent.press(await screen.findByTestId('delete-inspection'));
+  expect(await screen.findByRole('button', { name: 'Delete inspection' })).toBeOnTheScreen();
+  await fireEvent.press(screen.getByTestId('delete-inspection'));
   expect(alert).toHaveBeenCalledWith('Delete this inspection?', expect.stringContaining('cannot be undone'), expect.any(Array));
   expect(r.deleteInspection).not.toHaveBeenCalled();
 

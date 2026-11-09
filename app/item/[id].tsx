@@ -32,7 +32,7 @@ export default function ItemScreen() {
   // Photos of the matching move-in item; null when this is not a move-out item with a match.
   const [moveInPhotos, setMoveInPhotos] = useState<Photo[] | null>(null);
   const [peekOpen, setPeekOpen] = useState(false);
-  const { width } = useWindowDimensions();
+  const { width, fontScale } = useWindowDimensions();
   const locked = finishedAt != null;
 
   // active() is false once the screen lost focus or moved to another item, so a slow load can't overwrite newer state.
@@ -115,6 +115,8 @@ export default function ItemScreen() {
   const left = siblings.filter((i) => i.condition == null && i.id !== itemId).length;
   const tint = { good: c.good, fair: c.fairInk, damaged: c.damaged } as const;
   const tintBg = { good: c.goodBg, fair: c.fairBg, damaged: c.damagedBg } as const;
+  // Three chips side by side clip "Damaged" past the accessibility text sizes, so stack them.
+  const stacked = fontScale > 1.4;
 
   if (error || item === null)
     return (
@@ -143,7 +145,7 @@ export default function ItemScreen() {
         {locked && <FinishedBanner finishedAt={finishedAt} />}
 
         <SectionLabel>Condition</SectionLabel>
-        <View style={[styles.track, { backgroundColor: c.hair }]} accessibilityRole="radiogroup">
+        <View style={[styles.track, stacked && styles.stacked, { backgroundColor: c.hair }]} accessibilityRole="radiogroup">
           {CONDITIONS.map((value) => {
             const selected = item?.condition === value;
             return (
@@ -156,6 +158,7 @@ export default function ItemScreen() {
                 onPress={() => onPick(value)}
                 style={({ pressed }) => [
                   styles.option,
+                  stacked && styles.optionStacked,
                   selected && { backgroundColor: tintBg[value], borderColor: tint[value] },
                   pressed && { opacity: 0.8 },
                 ]}
@@ -172,7 +175,7 @@ export default function ItemScreen() {
           accessibilityLabel="Note"
           multiline
           placeholder="Describe any marks, damage, or wear"
-          placeholderTextColor={c.ink30}
+          placeholderTextColor={c.ink60}
           value={note}
           onChangeText={setNoteText}
           onBlur={onNoteBlur}
@@ -183,14 +186,14 @@ export default function ItemScreen() {
         <SectionLabel>Photos</SectionLabel>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photos}>
           {photos.map((p, i) => (
-            <Image key={p.id} accessibilityLabel={`Photo ${i + 1}`} source={{ uri: photoUri(p) }} style={[styles.thumb, { backgroundColor: c.hair }]} />
+            <Image key={p.id} accessible accessibilityRole="image" accessibilityLabel={`Photo ${i + 1}`} source={{ uri: photoUri(p) }} style={[styles.thumb, { backgroundColor: c.hair }]} />
           ))}
           {!locked && (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Add photo"
               onPress={() => router.push(`/camera/${itemId}`)}
-              style={({ pressed }) => [styles.thumb, styles.add, { backgroundColor: c.paper }, pressed && { opacity: 0.8 }]}
+              style={({ pressed }) => [styles.add, { backgroundColor: c.paper }, pressed && { opacity: 0.8 }]}
             >
               <Text style={[styles.addPlus, { color: c.ink }]}>+</Text>
               <Text style={[styles.addText, { color: c.ink60 }]}>Add photo</Text>
@@ -208,6 +211,8 @@ export default function ItemScreen() {
                 {moveInPhotos.map((p, i) => (
                   <Image
                     key={p.id}
+                    accessible
+                    accessibilityRole="image"
                     accessibilityLabel={`Move-in photo ${i + 1} of ${moveInPhotos.length}`}
                     source={{ uri: photoUri(p) }}
                     resizeMode="contain"
@@ -240,6 +245,7 @@ export default function ItemScreen() {
 const styles = StyleSheet.create({
   subtitle: { fontSize: 15, marginTop: -4, marginBottom: 4, marginLeft: 4 },
   track: { flexDirection: 'row', gap: 4, padding: 4, borderRadius: radius.capsule },
+  stacked: { flexDirection: 'column' },
   option: {
     flex: 1,
     minHeight: 48,
@@ -251,11 +257,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
+  optionStacked: { flexBasis: 'auto' },
   optionText: { fontSize: 16, fontWeight: '500' },
   note: { minHeight: 100, borderRadius: 20, padding: 16, fontSize: 16, textAlignVertical: 'top' },
   photos: { gap: 10 },
   thumb: { width: 88, height: 88, borderRadius: radius.tile },
-  add: { alignItems: 'center', justifyContent: 'center', gap: 2 },
+  add: { minWidth: 88, minHeight: 88, padding: 8, borderRadius: radius.tile, alignItems: 'center', justifyContent: 'center', gap: 2 },
   addPlus: { fontSize: 22, lineHeight: 24 },
   addText: { fontSize: 13, fontWeight: '500' },
   peekButton: { marginTop: 16 },

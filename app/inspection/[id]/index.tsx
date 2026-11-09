@@ -242,7 +242,7 @@ export default function RoomList() {
                 key={room.id}
                 first={idx === 0}
                 onPress={editing ? () => setRenaming({ id: room.id, name: room.name }) : () => router.push(`/inspection/${inspectionId}/room/${room.id}`)}
-                a11y={editing ? `Rename ${room.name}` : `Open ${room.name}, ${room.done} of ${room.total} items`}
+                a11y={editing ? `Rename ${room.name}` : `Open ${room.name}, ${room.done} of ${room.total} items${room.fair ? `, ${room.fair} fair` : ''}${room.damaged ? `, ${room.damaged} damaged` : ''}`}
                 leading={
                   editing ? (
                     <Pressable
@@ -252,7 +252,7 @@ export default function RoomList() {
                       hitSlop={10}
                       style={[styles.minus, { backgroundColor: c.damaged }]}
                     >
-                      <Text style={[styles.minusText, { color: c.onInk }]}>−</Text>
+                      <Text maxFontSizeMultiplier={1} style={[styles.minusText, { color: c.onInk }]}>−</Text>
                     </Pressable>
                   ) : undefined
                 }
@@ -260,10 +260,10 @@ export default function RoomList() {
                   editing ? (
                     <View style={styles.reorder}>
                       <Pressable accessibilityRole="button" accessibilityLabel={`Move ${room.name} up`} hitSlop={8} onPress={() => run((db) => moveRoom(db, room.id, 'up'))} style={styles.arrow}>
-                        <Text style={[styles.arrowText, { color: c.ink60 }]}>↑</Text>
+                        <Text maxFontSizeMultiplier={1} style={[styles.arrowText, { color: c.ink60 }]}>↑</Text>
                       </Pressable>
                       <Pressable accessibilityRole="button" accessibilityLabel={`Move ${room.name} down`} hitSlop={8} onPress={() => run((db) => moveRoom(db, room.id, 'down'))} style={styles.arrow}>
-                        <Text style={[styles.arrowText, { color: c.ink60 }]}>↓</Text>
+                        <Text maxFontSizeMultiplier={1} style={[styles.arrowText, { color: c.ink60 }]}>↓</Text>
                       </Pressable>
                     </View>
                   ) : (
@@ -296,7 +296,7 @@ export default function RoomList() {
             (adding != null ? (
               <InlineInput value={adding} onChangeText={setAdding} onSubmit={add} onCancel={() => setAdding(null)} placeholder="Room name" a11y="New room name" submitLabel="Add" />
             ) : (
-              <Row first={rooms.length === 0} onPress={() => setAdding('')} a11y="Add room" trailing={<View />} leading={<View style={[styles.plus, { borderColor: c.ink30 }]}><Text style={[styles.plusText, { color: c.ink60 }]}>+</Text></View>}>
+              <Row first={rooms.length === 0} onPress={() => setAdding('')} a11y="Add room" trailing={<View />} leading={<View style={[styles.plus, { borderColor: c.ink30 }]}><Text maxFontSizeMultiplier={1} style={[styles.plusText, { color: c.ink60 }]}>+</Text></View>}>
                 <Text style={[styles.addText, { color: c.ink60 }]}>Add room</Text>
               </Row>
             ))}

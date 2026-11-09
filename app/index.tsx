@@ -98,7 +98,9 @@ export default function Home() {
           </Pressable>
         ) : (
           <View style={styles.empty}>
-            <Text style={[styles.emptyTitle, { color: c.ink }]}>No inspections yet</Text>
+            <Text accessibilityRole="header" style={[styles.emptyTitle, { color: c.ink }]}>
+              No inspections yet
+            </Text>
             <Text style={[styles.emptyBody, { color: c.ink60 }]}>
               Walk each room before you unpack. About twenty minutes, and the report protects your deposit.
             </Text>
