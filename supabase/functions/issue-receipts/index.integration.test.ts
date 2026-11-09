@@ -2,19 +2,29 @@
  * @jest-environment node
  */
 /// <reference types="node" />
+import { request } from 'node:http';
+
 // Runs against a served function (`supabase start` + `supabase functions serve`).
 // Skipped unless SUPABASE_URL and SUPABASE_ANON_KEY are set in the environment.
 const url = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_ANON_KEY;
 const run = url && key ? describe : describe.skip;
 
-function post(body: unknown) {
-  return fetch(`${url}/functions/v1/issue-receipts`, {
-    method: 'POST',
-    headers: { apikey: key!, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+// jest-expo replaces global fetch with a stub even in the node environment, so talk HTTP directly.
+function call(method: string, body?: unknown) {
+  return new Promise<{ status: number; json: () => Promise<any> }>((resolve, reject) => {
+    const headers = { apikey: key!, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
+    const req = request(`${url}/functions/v1/issue-receipts`, { method, headers }, (res) => {
+      let text = '';
+      res.on('data', (chunk) => (text += chunk));
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, json: async () => JSON.parse(text) }));
+    });
+    req.on('error', reject);
+    req.end(body === undefined ? undefined : JSON.stringify(body));
   });
 }
+
+const post = (body: unknown) => call('POST', body);
 
 function randomHash() {
   return Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
@@ -40,9 +50,6 @@ run('issue-receipts (integration)', () => {
   });
 
   it('rejects non-POST', async () => {
-    const res = await fetch(`${url}/functions/v1/issue-receipts`, {
-      headers: { apikey: key!, Authorization: `Bearer ${key}` },
-    });
-    expect(res.status).toBe(405);
+    expect((await call('GET')).status).toBe(405);
   });
 });
