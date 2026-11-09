@@ -6,6 +6,7 @@ import { Button } from '@/components/Button';
 import { Group, Row, RowMeta, RowTitle, SectionLabel } from '@/components/Group';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Floating, Screen } from '@/components/Screen';
+import { Loading, Problem, errorMessage } from '@/components/Status';
 import { getDb } from '@/db/client';
 import { listInspectionItems, listInspections, listRooms } from '@/db/repo';
 import type { Inspection } from '@/db/types';
@@ -21,29 +22,49 @@ const address = (i: Inspection) => `${i.address}${i.unit ? `, ${i.unit}` : ''}`;
 export default function Home() {
   const { c } = useTheme();
   const [inspections, setInspections] = useState<HomeRow[] | null>(null);
+  const [error, setError] = useState<unknown>(null);
+
+  // active() is false once the screen lost focus, so a slow load can't overwrite newer state.
+  const load = useCallback(async (active: () => boolean = () => true) => {
+    setError(null);
+    try {
+      const db = await getDb();
+      // ponytail: two queries per unfinished inspection; fine for a renter's handful of inspections.
+      const rows = await Promise.all(
+        (await listInspections(db)).map(async (i) => {
+          if (i.finished_at != null) return { ...i, progress: null, next: null };
+          const [rooms, items] = await Promise.all([listRooms(db, i.id), listInspectionItems(db, i.id)]);
+          return { ...i, progress: progress(rooms, items), next: nextRoom(rooms, items)?.name ?? null };
+        }),
+      );
+      if (active()) setInspections(rows);
+    } catch (e) {
+      if (active()) setError(e);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      (async () => {
-        const db = await getDb();
-        // ponytail: two queries per unfinished inspection; fine for a renter's handful of inspections.
-        const rows = await Promise.all(
-          (await listInspections(db)).map(async (i) => {
-            if (i.finished_at != null) return { ...i, progress: null, next: null };
-            const [rooms, items] = await Promise.all([listRooms(db, i.id), listInspectionItems(db, i.id)]);
-            return { ...i, progress: progress(rooms, items), next: nextRoom(rooms, items)?.name ?? null };
-          }),
-        );
-        if (active) setInspections(rows);
-      })();
+      load(() => active);
       return () => {
         active = false;
       };
-    }, []),
+    }, [load]),
   );
 
-  if (!inspections) return <Screen>{null}</Screen>;
+  if (error)
+    return (
+      <Screen>
+        <Problem title="Could not load inspections" body={errorMessage(error)} onRetry={() => load()} />
+      </Screen>
+    );
+  if (!inspections)
+    return (
+      <Screen>
+        <Loading />
+      </Screen>
+    );
   const [hero, ...rest] = inspections.filter((i) => i.finished_at == null);
   const finished = inspections.filter((i) => i.finished_at != null);
 

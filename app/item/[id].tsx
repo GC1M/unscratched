@@ -1,12 +1,13 @@
 import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { CONDITION_LABEL, ConditionMark } from '@/components/ConditionMark';
 import { FinishedBanner } from '@/components/FinishedBanner';
 import { SectionLabel } from '@/components/Group';
 import { Floating, Screen } from '@/components/Screen';
+import { Loading, Problem, errorMessage } from '@/components/Status';
 import { getDb } from '@/db/client';
 import { getFinishedAt, getItem, getRoom, listItems, listPhotos, setCondition, setNote } from '@/db/repo';
 import type { Condition, Item, Photo } from '@/db/types';
@@ -20,7 +21,9 @@ const CONDITIONS: Condition[] = ['good', 'fair', 'damaged'];
 export default function ItemScreen() {
   const { c } = useTheme();
   const itemId = Number(useLocalSearchParams<{ id: string }>().id);
-  const [item, setItem] = useState<Item | null>(null);
+  // undefined while loading, null when it no longer exists.
+  const [item, setItem] = useState<Item | null | undefined>(undefined);
+  const [error, setError] = useState<unknown>(null);
   const [siblings, setSiblings] = useState<Item[]>([]);
   const [roomName, setRoomName] = useState('');
   const [note, setNoteText] = useState('');
@@ -32,13 +35,17 @@ export default function ItemScreen() {
   const { width } = useWindowDimensions();
   const locked = finishedAt != null;
 
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      (async () => {
+  // active() is false once the screen lost focus or moved to another item, so a slow load can't overwrite newer state.
+  const load = useCallback(
+    async (active: () => boolean = () => true) => {
+      setError(null);
+      try {
         const db = await getDb();
         const loaded = await getItem(db, itemId);
-        if (!loaded) return;
+        if (!loaded) {
+          if (active()) setItem(null);
+          return;
+        }
         const [room, list, loadedPhotos, finished, match] = await Promise.all([
           getRoom(db, loaded.room_id),
           listItems(db, loaded.room_id),
@@ -47,7 +54,7 @@ export default function ItemScreen() {
           findMoveInItem(db, itemId),
         ]);
         const matchPhotos = match ? await listPhotos(db, match.id) : null;
-        if (!active) return;
+        if (!active()) return;
         setMoveInPhotos(matchPhotos);
         setItem(loaded);
         setRoomName(room?.name ?? '');
@@ -55,11 +62,21 @@ export default function ItemScreen() {
         setFinishedAt(finished);
         setNoteText(loaded.note ?? '');
         setPhotos(loadedPhotos);
-      })();
+      } catch (e) {
+        if (active()) setError(e);
+      }
+    },
+    [itemId],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      load(() => active);
       return () => {
         active = false;
       };
-    }, [itemId]),
+    }, [load]),
   );
 
   async function onPick(value: Condition) {
@@ -68,17 +85,29 @@ export default function ItemScreen() {
     const next = item.condition === value ? null : value;
     setItem({ ...item, condition: next });
     setSiblings((s) => s.map((i) => (i.id === itemId ? { ...i, condition: next } : i)));
-    await setCondition(await getDb(), itemId, next);
+    try {
+      await setCondition(await getDb(), itemId, next);
+    } catch (e) {
+      setItem(item);
+      setSiblings((s) => s.map((i) => (i.id === itemId ? item : i)));
+      Alert.alert('Could not save condition', errorMessage(e));
+    }
   }
 
+  /** Saves the note; false (after telling the user) if it could not be saved. */
   async function onNoteBlur() {
-    if (locked || !item || item.id !== itemId) return;
-    await setNote(await getDb(), itemId, note.trim() === '' ? null : note);
+    if (locked || !item || item.id !== itemId) return true;
+    try {
+      await setNote(await getDb(), itemId, note.trim() === '' ? null : note);
+      return true;
+    } catch (e) {
+      Alert.alert('Could not save note', errorMessage(e));
+      return false;
+    }
   }
 
   async function go(fn: () => void) {
-    await onNoteBlur();
-    fn();
+    if (await onNoteBlur()) fn();
   }
 
   const position = siblings.findIndex((i) => i.id === itemId) + 1;
@@ -87,9 +116,26 @@ export default function ItemScreen() {
   const tint = { good: c.good, fair: c.fairInk, damaged: c.damaged } as const;
   const tintBg = { good: c.goodBg, fair: c.fairBg, damaged: c.damagedBg } as const;
 
+  if (error || item === null)
+    return (
+      <Screen>
+        {error ? (
+          <Problem title="Could not load this item" body={errorMessage(error)} onRetry={() => load()} />
+        ) : (
+          <Problem title="Item not found" body="It may have been deleted." />
+        )}
+      </Screen>
+    );
+  if (item === undefined)
+    return (
+      <Screen>
+        <Loading />
+      </Screen>
+    );
+
   return (
     <>
-      <Stack.Screen options={{ title: item?.name ?? '' }} />
+      <Stack.Screen options={{ title: item.name }} />
       <Screen>
         <Text style={[styles.subtitle, { color: c.ink60 }]}>
           {roomName}, item {position} of {siblings.length}
