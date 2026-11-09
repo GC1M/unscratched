@@ -4,7 +4,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { InspectionLockedError, insertPhoto } from '@/db/repo';
 
-import { capturePhoto } from './photos';
+import { capturePhoto, photoUri } from './photos';
 
 // In-memory file system: uri -> bytes.
 const mockFiles = new Map<string, Uint8Array>();
@@ -104,7 +104,7 @@ test('landscape: resizes width to 1600, saves JPEG 0.7 into documents/photos, ha
   const expected = createHash('sha256').update(BYTES).digest('hex');
   expect(insertPhoto).toHaveBeenCalledWith(db, {
     item_id: 7,
-    file_uri: 'file:///docs/photos/uuid-1.jpg',
+    file_uri: 'photos/uuid-1.jpg',
     sha256: expected,
     captured_at: 1_700_000_000_000,
     width: 1600,
@@ -141,4 +141,8 @@ test('finished inspection: the locked insert deletes the file and rethrows Inspe
   jest.mocked(insertPhoto).mockRejectedValueOnce(new InspectionLockedError());
   await expect(capturePhoto(db, 7, 'file:///camera/raw.jpg')).rejects.toThrow(InspectionLockedError);
   expect(mockFiles.size).toBe(0);
+});
+
+test('photoUri resolves the stored relative path against the documents directory', () => {
+  expect(photoUri({ file_uri: 'photos/a.jpg' })).toBe('file:///docs/photos/a.jpg');
 });

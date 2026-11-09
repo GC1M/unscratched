@@ -4,6 +4,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 
 import { FinishedBanner } from '@/components/FinishedBanner';
 import { getDb } from '@/db/client';
+import { photoUri } from '@/lib/photos';
 import { getFinishedAt, getItem, listPhotos, setCondition, setNote } from '@/db/repo';
 import type { Condition, Item, Photo } from '@/db/types';
 
@@ -97,7 +98,7 @@ export default function ItemScreen() {
       <Text style={styles.heading}>Photos</Text>
       <ScrollView horizontal contentContainerStyle={styles.photos}>
         {photos.map((p, i) => (
-          <Image key={p.id} accessibilityLabel={`Photo ${i + 1}`} source={{ uri: p.file_uri }} style={styles.thumb} />
+          <Image key={p.id} accessibilityLabel={`Photo ${i + 1}`} source={{ uri: photoUri(p) }} style={styles.thumb} />
         ))}
       </ScrollView>
       {!locked && (
