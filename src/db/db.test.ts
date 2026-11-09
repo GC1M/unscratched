@@ -4,6 +4,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { migrate, migrations } from './migrations';
 import * as repo from './repo';
+import { expandTemplate } from '../templates/rooms';
 
 // Fake SQLiteDatabase backed by Node's built-in SQLite, implementing only the methods src/db uses.
 function fakeDb() {
@@ -87,6 +88,29 @@ describe('repo', () => {
     });
     expect((await repo.listInspections(db)).map((i) => i.id)).toEqual([b, a]);
     expect(await repo.getInspection(db, 999)).toBeNull();
+  });
+
+  test('createInspectionFromTemplate inserts rooms and items in template order', async () => {
+    const { raw, db } = await setup();
+    const id = await repo.createInspectionFromTemplate(db, { address: '1 Main St', unit: '2B' });
+    expect((await repo.getInspection(db, id))?.unit).toBe('2B');
+
+    const expected = expandTemplate();
+    const rooms = await repo.listRooms(db, id);
+    expect(rooms.map((r) => [r.name, r.sort])).toEqual(expected.map((r) => [r.name, r.sort]));
+    for (const [i, room] of rooms.entries()) {
+      const items = await repo.listItems(db, room.id);
+      expect(items.map((it) => [it.name, it.sort])).toEqual(expected[i].items.map((it) => [it.name, it.sort]));
+    }
+    expect(count(raw, 'item')).toBe(expected.reduce((n, r) => n + r.items.length, 0));
+  });
+
+  test('createInspectionFromTemplate uses the given room names', async () => {
+    const { db } = await setup();
+    const id = await repo.createInspectionFromTemplate(db, { address: 'x' }, ['Bedroom', 'Den']);
+    const rooms = await repo.listRooms(db, id);
+    expect(rooms.map((r) => [r.name, r.sort])).toEqual([['Bedroom', 0], ['Den', 1]]);
+    expect((await repo.listItems(db, rooms[1].id)).map((it) => it.name)).toEqual(['Walls', 'Floor', 'Ceiling']);
   });
 
   test('rooms append, rename, reorder, and delete keep sort contiguous', async () => {

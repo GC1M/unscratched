@@ -1,7 +1,4 @@
-export interface TemplateRoom {
-  name: string;
-  items: string[];
-}
+import type { TemplateRoom } from '../db/types';
 
 const COMMON = ['Walls', 'Floor', 'Ceiling', 'Windows', 'Doors', 'Outlets and switches', 'Light fixtures'];
 const DEFAULT_ITEMS = ['Walls', 'Floor', 'Ceiling'];
