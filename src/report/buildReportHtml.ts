@@ -3,14 +3,14 @@ import type { Condition } from '@/db/types';
 import { escapeHtml } from './escapeHtml';
 import type { ReportData } from './types';
 
-const CONDITION_LABELS: Record<Condition, string> = { good: 'Good', fair: 'Fair', damaged: 'Damaged' };
+export const CONDITION_LABELS: Record<Condition, string> = { good: 'Good', fair: 'Fair', damaged: 'Damaged' };
 
 const BLANK = '<span class="blank"></span>';
 
 const STYLE = `
 @page { margin: 16mm; }
 * { box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #111; font-size: 11pt; line-height: 1.4; margin: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #111; font-size: 11pt; line-height: 1.4; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 h1 { font-size: 22pt; margin: 0 0 12pt; }
 h2 { font-size: 16pt; margin: 0 0 8pt; }
 .cover dl { display: grid; grid-template-columns: max-content 1fr; gap: 4pt 12pt; margin: 0 0 16pt; }
@@ -30,7 +30,7 @@ th { background: #f2f2f2; }
 footer { margin-top: 24pt; font-size: 8pt; color: #666; }
 `;
 
-const defaultFormatDate = (ms: number) =>
+export const defaultFormatDate = (ms: number) =>
   new Date(ms).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 /** Pure: report data in, a complete print-ready HTML document out. Every user string goes through escapeHtml. */

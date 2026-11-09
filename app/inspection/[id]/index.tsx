@@ -12,6 +12,7 @@ import { Floating, Screen } from '@/components/Screen';
 import { getDb } from '@/db/client';
 import {
   addRoom,
+  copyFromMoveIn,
   deleteRoom,
   finishInspection,
   getInspection,
@@ -24,6 +25,7 @@ import type { Inspection, Room } from '@/db/types';
 import { kindLabel, shortDate } from '@/lib/format';
 import { nextRoom } from '@/lib/next';
 import { progress, type Progress } from '@/lib/progress';
+import { exportComparison } from '@/report/exportComparison';
 import { useTheme } from '@/theme';
 
 type RoomRow = Room & { done: number; total: number; fair: number; damaged: number };
@@ -38,6 +40,8 @@ export default function RoomList() {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState<{ id: number; name: string } | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
+  const [comparing, setComparing] = useState(false);
+  const [starting, setStarting] = useState(false);
 
   const load = useCallback(async () => {
     const db = await getDb();
@@ -104,7 +108,33 @@ export default function RoomList() {
       ],
     );
 
+  const shareComparison = async () => {
+    if (comparing) return;
+    setComparing(true);
+    try {
+      await exportComparison(await getDb(), inspectionId);
+    } catch (e) {
+      Alert.alert('Comparison export failed', e instanceof Error ? e.message : String(e));
+    } finally {
+      setComparing(false);
+    }
+  };
+
+  const startMoveOut = async () => {
+    if (starting) return;
+    setStarting(true);
+    try {
+      const id = await copyFromMoveIn(await getDb(), inspectionId);
+      router.push(`/inspection/${id}`);
+    } catch (e) {
+      Alert.alert('Could not start move-out', e instanceof Error ? e.message : String(e));
+    } finally {
+      setStarting(false);
+    }
+  };
+
   const locked = inspection?.finished_at != null;
+  const comparable = inspection?.kind === 'move_out' && inspection.linked_move_in_id != null;
   const allDone = !!summary && summary.itemsTotal > 0 && summary.roomsDone === summary.roomsTotal;
   const roomsLeft = summary ? summary.roomsTotal - summary.roomsDone : 0;
 
@@ -210,7 +240,15 @@ export default function RoomList() {
       {!editing && (
         <Floating>
           {locked ? (
-            <Button label="Export report" onPress={() => router.push(`/inspection/${inspectionId}/export`)} />
+            <View style={styles.stack}>
+              <Button label="Export report" onPress={() => router.push(`/inspection/${inspectionId}/export`)} />
+              {comparable && (
+                <Button label={comparing ? 'Building comparison' : 'Export comparison'} a11y="Export comparison" variant="secondary" onPress={shareComparison} busy={comparing} />
+              )}
+              {inspection?.kind === 'move_in' && (
+                <Button label="Start move-out" variant="secondary" onPress={startMoveOut} busy={starting} />
+              )}
+            </View>
           ) : allDone ? (
             <Button label="Finish inspection" onPress={confirmFinish} />
           ) : next ? (
@@ -228,6 +266,7 @@ export default function RoomList() {
 
 const styles = StyleSheet.create({
   subtitle: { fontSize: 15, marginTop: -4, marginBottom: 12, marginLeft: 4 },
+  stack: { gap: 8 },
   progress: { marginBottom: 16, marginHorizontal: 4 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   tally: { flexDirection: 'row', alignItems: 'center', gap: 4 },

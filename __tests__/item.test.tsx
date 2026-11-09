@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import ItemScreen from '../app/item/[id]';
 import { getFinishedAt, getItem, getRoom, listItems, listPhotos, setCondition, setNote } from '@/db/repo';
 import type { Item, Photo } from '@/db/types';
+import { findMoveInItem } from '@/lib/moveInMatch';
 import { shortDate } from '@/lib/format';
 
 const db = {};
@@ -18,6 +19,7 @@ jest.mock('@/db/repo', () => ({
   setCondition: jest.fn(() => Promise.resolve()),
   setNote: jest.fn(() => Promise.resolve()),
 }));
+jest.mock('@/lib/moveInMatch', () => ({ findMoveInItem: jest.fn() }));
 jest.mock('expo-router', () => require('@/test/expoRouter').mockExpoRouter({ useLocalSearchParams: () => ({ id: '7' }) }));
 
 const item: Item = { id: 7, room_id: 1, name: 'Walls', condition: null, note: null, sort: 0 };
@@ -40,6 +42,7 @@ beforeEach(() => {
   jest.mocked(listItems).mockResolvedValue([item, floor]);
   jest.mocked(listPhotos).mockResolvedValue([]);
   jest.mocked(getFinishedAt).mockResolvedValue(null);
+  jest.mocked(findMoveInItem).mockResolvedValue(null);
 });
 
 test('tapping a condition selects it and saves; tapping again clears it', async () => {
@@ -117,4 +120,34 @@ test('finished inspection: conditions read-only, note not editable, Add photo an
   expect(screen.getByLabelText('Photo 1')).toBeOnTheScreen();
   expect(screen.queryByRole('button', { name: 'Add photo' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Next: Floor' })).toBeNull();
+});
+
+describe('move-in peek', () => {
+  const moveInItem: Item = { ...item, id: 3, room_id: 9 };
+
+  test('button hidden when there is no move-in match (move-in item or unmatched move-out)', async () => {
+    await render(<ItemScreen />);
+    await waitFor(() => expect(findMoveInItem).toHaveBeenCalledWith(db, 7));
+    expect(screen.queryByRole('button', { name: 'View move-in photo' })).toBeNull();
+  });
+
+  test('button visible for a matched move-out item and opens the move-in photos', async () => {
+    jest.mocked(findMoveInItem).mockResolvedValue(moveInItem);
+    jest.mocked(listPhotos).mockImplementation(async (_db, id) => (id === 3 ? [photo(10), photo(11)] : []));
+    await render(<ItemScreen />);
+    await fireEvent.press(await screen.findByRole('button', { name: 'View move-in photo' }));
+    expect(listPhotos).toHaveBeenCalledWith(db, 3);
+    expect(screen.getByLabelText('Move-in photo 1 of 2')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Move-in photo 2 of 2')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByLabelText('Move-in photo 1 of 2')).toBeNull();
+  });
+
+  test('matched item without photos says so', async () => {
+    jest.mocked(findMoveInItem).mockResolvedValue(moveInItem);
+    await render(<ItemScreen />);
+    await fireEvent.press(await screen.findByRole('button', { name: 'View move-in photo' }));
+    expect(screen.getByText('No move-in photo for this item')).toBeOnTheScreen();
+  });
 });

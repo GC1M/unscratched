@@ -79,6 +79,38 @@ export async function createInspectionFromTemplate(
   return id;
 }
 
+/**
+ * Starts a move-out from a finished move-in: same address, people, rooms and items (names and sort),
+ * linked back, with no conditions, notes, or photos. Returns the new inspection id.
+ */
+export async function copyFromMoveIn(db: SQLiteDatabase, moveInId: number): Promise<number> {
+  let id = 0;
+  await db.withTransactionAsync(async () => {
+    const src = await getInspection(db, moveInId);
+    if (!src || src.kind !== 'move_in' || src.finished_at == null) {
+      throw new Error('Only a finished move-in can start a move-out.');
+    }
+    id = await createInspection(db, {
+      address: src.address,
+      unit: src.unit,
+      kind: 'move_out',
+      tenant_name: src.tenant_name,
+      landlord_name: src.landlord_name,
+      linked_move_in_id: src.id,
+      move_out_date: src.move_out_date,
+    });
+    for (const room of await listRooms(db, moveInId)) {
+      const r = await db.runAsync('INSERT INTO room (inspection_id, name, sort) VALUES (?, ?, ?)', id, room.name, room.sort);
+      await db.runAsync(
+        'INSERT INTO item (room_id, name, sort) SELECT ?, name, sort FROM item WHERE room_id = ?',
+        r.lastInsertRowId,
+        room.id,
+      );
+    }
+  });
+  return id;
+}
+
 export function getInspection(db: SQLiteDatabase, id: number): Promise<Inspection | null> {
   return db.getFirstAsync<Inspection>('SELECT * FROM inspection WHERE id = ?', id);
 }

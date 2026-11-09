@@ -3,12 +3,14 @@ import { Alert } from 'react-native';
 
 import * as repo from '@/db/repo';
 import { exportReport } from '@/report/export';
+import { exportPhotosZip } from '@/report/exportPhotosZip';
 
 import ExportReport from '../app/inspection/[id]/export';
 
 jest.mock('@/db/client', () => ({ getDb: jest.fn(async () => ({})) }));
 jest.mock('@/db/repo');
 jest.mock('@/report/export', () => ({ exportReport: jest.fn() }));
+jest.mock('@/report/exportPhotosZip', () => ({ exportPhotosZip: jest.fn() }));
 jest.mock('expo-router', () => require('@/test/expoRouter').mockExpoRouter({ useLocalSearchParams: () => ({ id: '1' }) }));
 
 const finishedAt = new Date(2026, 0, 20).getTime();
@@ -52,4 +54,20 @@ test('prefills names from the inspection and shows an alert when export fails', 
   await fireEvent.press(screen.getByRole('button', { name: 'Export PDF' }));
   expect(exportReport).toHaveBeenCalledWith({}, 1, { tenantName: 'Ana', landlordName: 'Lee', date: finishedAt });
   expect(alert).toHaveBeenCalledWith('Export failed', 'boom');
+});
+
+test('the zip button shares photos without needing the tenant name, and alerts on failure', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  await render(<ExportReport />);
+  await screen.findByDisplayValue('Lee');
+  const zip = screen.getByRole('button', { name: 'Share full-resolution photos (.zip)' });
+  expect(zip).toBeEnabled();
+  await fireEvent.press(zip);
+  expect(exportPhotosZip).toHaveBeenCalledWith({}, 1);
+  expect(exportReport).not.toHaveBeenCalled();
+  expect(alert).not.toHaveBeenCalled();
+
+  jest.mocked(exportPhotosZip).mockRejectedValue(new Error('This inspection has no photos to export.'));
+  await fireEvent.press(zip);
+  expect(alert).toHaveBeenCalledWith('Photo export failed', 'This inspection has no photos to export.');
 });

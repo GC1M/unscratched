@@ -1,6 +1,6 @@
 import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { CONDITION_LABEL, ConditionMark } from '@/components/ConditionMark';
@@ -10,6 +10,7 @@ import { Floating, Screen } from '@/components/Screen';
 import { getDb } from '@/db/client';
 import { getFinishedAt, getItem, getRoom, listItems, listPhotos, setCondition, setNote } from '@/db/repo';
 import type { Condition, Item, Photo } from '@/db/types';
+import { findMoveInItem } from '@/lib/moveInMatch';
 import { photoUri } from '@/lib/photos';
 import { nextUnchecked } from '@/lib/next';
 import { radius, useTheme } from '@/theme';
@@ -25,6 +26,10 @@ export default function ItemScreen() {
   const [note, setNoteText] = useState('');
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
+  // Photos of the matching move-in item; null when this is not a move-out item with a match.
+  const [moveInPhotos, setMoveInPhotos] = useState<Photo[] | null>(null);
+  const [peekOpen, setPeekOpen] = useState(false);
+  const { width } = useWindowDimensions();
   const locked = finishedAt != null;
 
   useFocusEffect(
@@ -34,13 +39,16 @@ export default function ItemScreen() {
         const db = await getDb();
         const loaded = await getItem(db, itemId);
         if (!loaded) return;
-        const [room, list, loadedPhotos, finished] = await Promise.all([
+        const [room, list, loadedPhotos, finished, match] = await Promise.all([
           getRoom(db, loaded.room_id),
           listItems(db, loaded.room_id),
           listPhotos(db, itemId),
           getFinishedAt(db, 'item', itemId),
+          findMoveInItem(db, itemId),
         ]);
+        const matchPhotos = match ? await listPhotos(db, match.id) : null;
         if (!active) return;
+        setMoveInPhotos(matchPhotos);
         setItem(loaded);
         setRoomName(room?.name ?? '');
         setSiblings(list);
@@ -137,6 +145,32 @@ export default function ItemScreen() {
             </Pressable>
           )}
         </ScrollView>
+        {moveInPhotos && (
+          <Button label="View move-in photo" variant="secondary" onPress={() => setPeekOpen(true)} style={styles.peekButton} />
+        )}
+
+        <Modal visible={peekOpen} animationType="slide" onRequestClose={() => setPeekOpen(false)}>
+          <View style={styles.peek}>
+            {moveInPhotos?.length ? (
+              <ScrollView horizontal pagingEnabled>
+                {moveInPhotos.map((p, i) => (
+                  <Image
+                    key={p.id}
+                    accessibilityLabel={`Move-in photo ${i + 1} of ${moveInPhotos.length}`}
+                    source={{ uri: photoUri(p) }}
+                    resizeMode="contain"
+                    style={{ width, height: '100%' }}
+                  />
+                ))}
+              </ScrollView>
+            ) : (
+              <Text style={styles.peekEmpty}>No move-in photo for this item</Text>
+            )}
+            <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => setPeekOpen(false)} style={styles.peekClose}>
+              <Text style={styles.peekCloseText}>Close</Text>
+            </Pressable>
+          </View>
+        </Modal>
       </Screen>
       {!locked && (
         <Floating>
@@ -172,4 +206,20 @@ const styles = StyleSheet.create({
   add: { alignItems: 'center', justifyContent: 'center', gap: 2 },
   addPlus: { fontSize: 22, lineHeight: 24 },
   addText: { fontSize: 13, fontWeight: '500' },
+  peekButton: { marginTop: 16 },
+  peek: { flex: 1, backgroundColor: '#000', justifyContent: 'center' },
+  peekEmpty: { color: '#fff', fontSize: 16, textAlign: 'center', padding: 16 },
+  peekClose: {
+    position: 'absolute',
+    top: 56,
+    right: 16,
+    minHeight: 44,
+    minWidth: 44,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  peekCloseText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });
