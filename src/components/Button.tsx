@@ -16,10 +16,11 @@ interface Props {
   /** Overrides the accessibility label. */
   a11y?: string;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 }
 
 /** Capsule button. Primary is tinted ink glass on iOS 26, solid ink elsewhere. */
-export function Button({ label, trailing, variant = 'primary', onPress, disabled, busy, a11y, style }: Props) {
+export function Button({ label, trailing, variant = 'primary', onPress, disabled, busy, a11y, style, testID }: Props) {
   const { c } = useTheme();
   const fg = variant === 'primary' ? c.onInk : variant === 'danger' ? c.damaged : c.ink;
   const glass = isLiquidGlassAvailable() && variant !== 'tertiary';
@@ -38,6 +39,7 @@ export function Button({ label, trailing, variant = 'primary', onPress, disabled
   return (
     <Pressable
       onPress={onPress}
+      testID={testID}
       disabled={disabled || busy}
       accessibilityRole="button"
       accessibilityLabel={a11y ?? label}
