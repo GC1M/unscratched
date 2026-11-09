@@ -40,6 +40,7 @@ footer { margin-top: 24pt; font-size: 8pt; color: #666; }
 <dt>Tenant</dt><dd>Ana Ruiz</dd>
 <dt>Landlord or manager</dt><dd>Bob Lee</dd>
 <dt>Generated</dt><dd>2026-01-03T00:00:00.000Z</dd>
+<dt>Verification</dt><dd>Verification code: abcdef012345<br>unscratched.app/v/abcdef012345</dd>
 </dl>
 <p>Photos were taken in the Unscratched app. Each photo's SHA-256 fingerprint is listed so the files can be checked later.</p>
 </section>
@@ -50,9 +51,9 @@ footer { margin-top: 24pt; font-size: 8pt; color: #666; }
 <tr><td>Oven</td><td>Damaged</td><td>Door hinge loose<br>Burn mark on glass</td></tr>
 </tbody></table>
 <div class="grid">
-<div class="card"><img src="data:image/jpeg;base64,AAA" alt="Countertops - photo 1"><div>Countertops - photo 1</div><div>2026-01-02T10:01:00.000Z</div><div class="hash">SHA-256: 111111111111</div></div>
-<div class="card"><img src="data:image/jpeg;base64,BBB" alt="Countertops - photo 2"><div>Countertops - photo 2</div><div>2026-01-02T10:02:00.000Z</div><div class="hash">SHA-256: 222222222222</div></div>
-<div class="card"><img src="data:image/jpeg;base64,CCC" alt="Oven - photo 1"><div>Oven - photo 1</div><div>2026-01-02T10:03:00.000Z</div><div class="hash">SHA-256: 333333333333</div></div>
+<div class="card"><img src="data:image/jpeg;base64,AAA" alt="Countertops - photo 1"><div>Countertops - photo 1</div><div>2026-01-02T10:01:00.000Z</div><div>Server time: 2026-01-02T11:05:00.000Z</div><div class="hash">SHA-256: 111111111111</div></div>
+<div class="card"><img src="data:image/jpeg;base64,BBB" alt="Countertops - photo 2"><div>Countertops - photo 2</div><div>2026-01-02T10:02:00.000Z</div><div>Receipt pending</div><div class="hash">SHA-256: 222222222222</div></div>
+<div class="card"><img src="data:image/jpeg;base64,CCC" alt="Oven - photo 1"><div>Oven - photo 1</div><div>2026-01-02T10:03:00.000Z</div><div>Receipt pending</div><div class="hash">SHA-256: 333333333333</div></div>
 </div>
 </section>
 <section class="room">
@@ -62,7 +63,7 @@ footer { margin-top: 24pt; font-size: 8pt; color: #666; }
 <tr><td>Mirror</td><td>Not recorded</td><td></td></tr>
 </tbody></table>
 <div class="grid">
-<div class="card"><img src="data:image/jpeg;base64,DDD" alt="Sink - photo 1"><div>Sink - photo 1</div><div>2026-01-02T10:04:00.000Z</div><div class="hash">SHA-256: 444444444444</div></div>
+<div class="card"><img src="data:image/jpeg;base64,DDD" alt="Sink - photo 1"><div>Sink - photo 1</div><div>2026-01-02T10:04:00.000Z</div><div>Receipt pending</div><div class="hash">SHA-256: 444444444444</div></div>
 </div>
 </section>
 <section class="room">
@@ -71,8 +72,8 @@ footer { margin-top: 24pt; font-size: 8pt; color: #666; }
 <tr><td>Carpet</td><td>Good</td><td></td></tr>
 </tbody></table>
 <div class="grid">
-<div class="card"><img src="data:image/jpeg;base64,EEE" alt="Carpet - photo 1"><div>Carpet - photo 1</div><div>2026-01-02T10:05:00.000Z</div><div class="hash">SHA-256: 555555555555</div></div>
-<div class="card"><div class="missing">Photo unavailable</div><div>Carpet - photo 2</div><div>2026-01-02T10:06:00.000Z</div><div class="hash">SHA-256: 666666666666</div></div>
+<div class="card"><img src="data:image/jpeg;base64,EEE" alt="Carpet - photo 1"><div>Carpet - photo 1</div><div>2026-01-02T10:05:00.000Z</div><div>Receipt pending</div><div class="hash">SHA-256: 555555555555</div></div>
+<div class="card"><div class="missing">Photo unavailable</div><div>Carpet - photo 2</div><div>2026-01-02T10:06:00.000Z</div><div>Receipt pending</div><div class="hash">SHA-256: 666666666666</div></div>
 </div>
 </section>
 <section class="ack">

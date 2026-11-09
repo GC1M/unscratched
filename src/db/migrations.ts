@@ -43,6 +43,15 @@ export const migrations: string[] = [
   );
   CREATE INDEX photo_item ON photo(item_id);
   `,
+  // Server receipts keyed by hash (photo sha256 or an inspection's manifest hash). A finished inspection's hash
+  // without a row here is pending.
+  `
+  CREATE TABLE receipt (
+    sha256 TEXT PRIMARY KEY,
+    receipt_id TEXT NOT NULL,
+    server_time INTEGER NOT NULL
+  );
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase): Promise<void> {

@@ -18,6 +18,7 @@ import {
 } from '@/db/repo';
 import type { InspectionKind, Room } from '@/db/types';
 import { progress, type Progress } from '@/lib/progress';
+import { syncReceipts } from '@/receipts/queue';
 import { exportComparison } from '@/report/exportComparison';
 
 type RoomRow = Room & { done: number; total: number };
@@ -88,7 +89,14 @@ export default function RoomList() {
       "A finished inspection can't be edited. Conditions, notes, rooms, and photos will be locked so the report can be trusted.",
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Finish', onPress: () => run((db) => finishInspection(db, inspectionId)) },
+        {
+          text: 'Finish',
+          onPress: () =>
+            run(async (db) => {
+              await finishInspection(db, inspectionId);
+              void syncReceipts(db); // fire and forget: offline just leaves the receipts pending
+            }),
+        },
       ],
     );
 
