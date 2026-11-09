@@ -20,6 +20,7 @@ table { width: 100%; border-collapse: collapse; margin: 0 0 12pt; page-break-ins
 th, td { border: 1px solid #ccc; padding: 4pt 6pt; text-align: left; vertical-align: top; }
 th { background: #f2f2f2; }
 tr.worse td { background: #fde2e1; color: #b3261e; font-weight: 600; border-top: 2px solid #b3261e; border-bottom: 2px solid #b3261e; }
+.item { page-break-inside: avoid; break-inside: avoid; }
 .pair { display: flex; gap: 8pt; margin: 0 0 8pt; page-break-inside: avoid; break-inside: avoid; }
 .card { width: calc((100% - 8pt) / 2); border: 1px solid #ccc; padding: 4pt; font-size: 9pt; }
 .card img { display: block; width: 100%; height: auto; }
@@ -88,7 +89,10 @@ ${hasPhotos('moveOut') ? row('Move-out verification', verificationText(c.moveOut
           { length: n },
           (_, k) => `<div class="pair">${card(i.name, 'move-in', before[k])}${card(i.name, 'move-out', after[k])}</div>`,
         );
-        return `<h3>${escapeHtml(i.name)}${i.worsened ? ' (Worse)' : ''}</h3>\n${rows.join('\n')}`;
+        // The heading shares an unbreakable block with its first pair, so it is never left alone at a page bottom.
+        // Only the first pair: a block of every pair could be taller than a page, and then no break rule holds.
+        const [first, ...rest] = rows;
+        return [`<div class="item"><h3>${escapeHtml(i.name)}${i.worsened ? ' (Worse)' : ''}</h3>\n${first}</div>`, ...rest].join('\n');
       })
       .filter(Boolean);
     return `<section class="room">
