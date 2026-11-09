@@ -132,3 +132,23 @@ test('Export report shows only for a finished inspection and opens the export sc
   await fireEvent.press(await screen.findByLabelText('Export report'));
   expect(router.push).toHaveBeenCalledWith('/inspection/1/export');
 });
+
+test('Start move-out shows only for a finished move-in and opens the new inspection', async () => {
+  const { router } = jest.requireMock('expo-router');
+  r.copyFromMoveIn.mockResolvedValue(7);
+  for (const insp of [
+    { kind: 'move_in', finished_at: null },
+    { kind: 'move_out', finished_at: 5 },
+  ]) {
+    r.getInspection.mockResolvedValue({ id: 1, address: '1 Main St', ...insp } as never);
+    await render(<RoomList />);
+    await screen.findByText('Kitchen');
+    expect(screen.queryByLabelText('Start move-out')).toBeNull();
+  }
+
+  r.getInspection.mockResolvedValue({ id: 1, address: '1 Main St', kind: 'move_in', finished_at: 5 } as never);
+  await render(<RoomList />);
+  await fireEvent.press(await screen.findByLabelText('Start move-out'));
+  expect(r.copyFromMoveIn).toHaveBeenCalledWith({}, 1);
+  expect(router.push).toHaveBeenCalledWith('/inspection/7');
+});

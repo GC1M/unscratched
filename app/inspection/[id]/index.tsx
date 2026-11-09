@@ -7,6 +7,7 @@ import { FinishedBanner } from '@/components/FinishedBanner';
 import { getDb } from '@/db/client';
 import {
   addRoom,
+  copyFromMoveIn,
   deleteRoom,
   finishInspection,
   getInspection,
@@ -15,7 +16,7 @@ import {
   moveRoom,
   renameRoom,
 } from '@/db/repo';
-import type { Room } from '@/db/types';
+import type { InspectionKind, Room } from '@/db/types';
 import { progress, type Progress } from '@/lib/progress';
 
 type RoomRow = Room & { done: number; total: number };
@@ -24,6 +25,7 @@ export default function RoomList() {
   const inspectionId = Number(useLocalSearchParams<{ id: string }>().id);
   const [address, setAddress] = useState('');
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
+  const [kind, setKind] = useState<InspectionKind | null>(null);
   const [summary, setSummary] = useState<Progress | null>(null);
   const [rooms, setRooms] = useState<RoomRow[]>([]);
   const [editing, setEditing] = useState<{ id: number; name: string } | null>(null);
@@ -34,6 +36,7 @@ export default function RoomList() {
     const inspection = await getInspection(db, inspectionId);
     setAddress(inspection?.address ?? '');
     setFinishedAt(inspection?.finished_at ?? null);
+    setKind(inspection?.kind ?? null);
     const [list, items] = await Promise.all([listRooms(db, inspectionId), listInspectionItems(db, inspectionId)]);
     setSummary(progress(list, items));
     setRooms(
@@ -84,6 +87,11 @@ export default function RoomList() {
         { text: 'Finish', onPress: () => run((db) => finishInspection(db, inspectionId)) },
       ],
     );
+
+  const startMoveOut = async () => {
+    const id = await copyFromMoveIn(await getDb(), inspectionId);
+    router.push(`/inspection/${id}`);
+  };
 
   const locked = finishedAt != null;
 
@@ -157,6 +165,16 @@ export default function RoomList() {
           accessibilityLabel="Export report"
         >
           <Text style={styles.finishText}>Export report</Text>
+        </Pressable>
+      )}
+      {locked && kind === 'move_in' && (
+        <Pressable
+          style={styles.finish}
+          onPress={startMoveOut}
+          accessibilityRole="button"
+          accessibilityLabel="Start move-out"
+        >
+          <Text style={styles.finishText}>Start move-out</Text>
         </Pressable>
       )}
       {!locked && (
