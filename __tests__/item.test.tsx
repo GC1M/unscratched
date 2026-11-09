@@ -20,7 +20,7 @@ jest.mock('@/db/repo', () => ({
   setNote: jest.fn(() => Promise.resolve()),
 }));
 jest.mock('@/lib/moveInMatch', () => ({ findMoveInItem: jest.fn() }));
-jest.mock('expo-router', () => require('@/test/expoRouter').mockExpoRouter({ useLocalSearchParams: () => ({ id: '7' }) }));
+jest.mock('expo-router', () => jest.requireActual('@/test/expoRouter').mockExpoRouter({ useLocalSearchParams: () => ({ id: '7' }) }));
 
 const item: Item = { id: 7, room_id: 1, name: 'Walls', condition: null, note: null, sort: 0 };
 const floor: Item = { id: 8, room_id: 1, name: 'Floor', condition: null, note: null, sort: 1 };

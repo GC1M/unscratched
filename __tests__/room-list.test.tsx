@@ -10,7 +10,7 @@ import RoomList from '../app/inspection/[id]/index';
 jest.mock('@/db/client', () => ({ getDb: jest.fn(async () => ({})) }));
 jest.mock('@/db/repo');
 jest.mock('@/report/exportComparison', () => ({ exportComparison: jest.fn() }));
-jest.mock('expo-router', () => require('@/test/expoRouter').mockExpoRouter({ useLocalSearchParams: () => ({ id: '1' }) }));
+jest.mock('expo-router', () => jest.requireActual('@/test/expoRouter').mockExpoRouter({ useLocalSearchParams: () => ({ id: '1' }) }));
 
 const r = jest.mocked(repo);
 let rooms: Room[];

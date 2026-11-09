@@ -11,7 +11,7 @@ jest.mock('@/db/client', () => ({ getDb: jest.fn(async () => ({})) }));
 jest.mock('@/db/repo');
 jest.mock('@/report/export', () => ({ exportReport: jest.fn() }));
 jest.mock('@/report/exportPhotosZip', () => ({ exportPhotosZip: jest.fn() }));
-jest.mock('expo-router', () => require('@/test/expoRouter').mockExpoRouter({ useLocalSearchParams: () => ({ id: '1' }) }));
+jest.mock('expo-router', () => jest.requireActual('@/test/expoRouter').mockExpoRouter({ useLocalSearchParams: () => ({ id: '1' }) }));
 
 const finishedAt = new Date(2026, 0, 20).getTime();
 

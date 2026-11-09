@@ -6,7 +6,7 @@ import { listInspectionItems, listInspections, listRooms } from '@/db/repo';
 import type { Inspection } from '@/db/types';
 import { shortDate } from '@/lib/format';
 
-jest.mock('expo-router', () => require('@/test/expoRouter').mockExpoRouter());
+jest.mock('expo-router', () => jest.requireActual('@/test/expoRouter').mockExpoRouter());
 jest.mock('@/db/client', () => ({ getDb: jest.fn().mockResolvedValue({}) }));
 jest.mock('@/db/repo', () => ({ listInspections: jest.fn(), listRooms: jest.fn(), listInspectionItems: jest.fn() }));
 
