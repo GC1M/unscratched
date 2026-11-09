@@ -83,6 +83,7 @@ export async function createInspectionFromTemplate(
 /**
  * Starts a move-out from a finished move-in: same address, people, rooms and items (names and sort),
  * linked back, with no conditions, notes, or photos. Returns the new inspection id.
+ * A move-in has at most one move-out: if one was already started from it, that one's id is returned instead.
  */
 export async function copyFromMoveIn(db: SQLiteDatabase, moveInId: number): Promise<number> {
   let id = 0;
@@ -90,6 +91,14 @@ export async function copyFromMoveIn(db: SQLiteDatabase, moveInId: number): Prom
     const src = await getInspection(db, moveInId);
     if (!src || src.kind !== 'move_in' || src.finished_at == null) {
       throw new Error('Only a finished move-in can start a move-out.');
+    }
+    const existing = await db.getFirstAsync<{ id: number }>(
+      "SELECT id FROM inspection WHERE kind = 'move_out' AND linked_move_in_id = ? ORDER BY id LIMIT 1",
+      moveInId,
+    );
+    if (existing) {
+      id = existing.id;
+      return;
     }
     id = await createInspection(db, {
       address: src.address,
