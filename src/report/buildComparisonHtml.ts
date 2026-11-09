@@ -8,7 +8,7 @@ import type { ReportItem } from './types';
 const STYLE = `
 @page { margin: 16mm; }
 * { box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #111; font-size: 11pt; line-height: 1.4; margin: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #111; font-size: 11pt; line-height: 1.4; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 h1 { font-size: 22pt; margin: 0 0 12pt; }
 h2 { font-size: 16pt; margin: 0 0 8pt; }
 h3 { font-size: 12pt; margin: 12pt 0 4pt; }
@@ -19,7 +19,7 @@ h3 { font-size: 12pt; margin: 12pt 0 4pt; }
 table { width: 100%; border-collapse: collapse; margin: 0 0 12pt; page-break-inside: avoid; }
 th, td { border: 1px solid #ccc; padding: 4pt 6pt; text-align: left; vertical-align: top; }
 th { background: #f2f2f2; }
-tr.worse td { background: #fde2e1; font-weight: 600; }
+tr.worse td { background: #fde2e1; color: #b3261e; font-weight: 600; border-top: 2px solid #b3261e; border-bottom: 2px solid #b3261e; }
 .pair { display: flex; gap: 8pt; margin: 0 0 8pt; page-break-inside: avoid; break-inside: avoid; }
 .card { width: calc((100% - 8pt) / 2); border: 1px solid #ccc; padding: 4pt; font-size: 9pt; }
 .card img { display: block; width: 100%; height: auto; }
