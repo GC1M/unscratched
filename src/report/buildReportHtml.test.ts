@@ -74,6 +74,10 @@ test('matches the snapshot', () => {
   expect(buildReportHtml(fixture(), { formatDate })).toMatchSnapshot();
 });
 
+test('the footer carries the "Not legal advice" disclaimer', () => {
+  expect(buildReportHtml(fixture(), { formatDate })).toContain('<footer><p>Not legal advice.</p>');
+});
+
 test('contains every item name, condition label, and hash prefix', () => {
   const data = fixture();
   const html = buildReportHtml(data, { formatDate });

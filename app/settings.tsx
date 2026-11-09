@@ -39,7 +39,7 @@ export default function Settings() {
         <Group>
           <Row first>
             <RowTitle>Photos and reports stay on this phone</RowTitle>
-            <RowMeta>Nothing is uploaded. Back up with iCloud.</RowMeta>
+            <RowMeta>Only photo fingerprints are sent, for timestamp receipts. Back up with iCloud.</RowMeta>
           </Row>
         </Group>
         <SectionLabel>About</SectionLabel>
