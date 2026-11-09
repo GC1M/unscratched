@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, Text
 import { getDb } from '@/db/client';
 import { getInspection } from '@/db/repo';
 import { exportReport } from '@/report/export';
+import { exportPhotosZip } from '@/report/exportPhotosZip';
 
 // The typed names are passed to the report only. The inspection is finished (locked), so
 // nothing on this screen writes to it.
@@ -14,6 +15,7 @@ export default function ExportReport() {
   const [tenant, setTenant] = useState('');
   const [landlord, setLandlord] = useState('');
   const [busy, setBusy] = useState(false);
+  const [zipBusy, setZipBusy] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -39,6 +41,19 @@ export default function ExportReport() {
       Alert.alert('Export failed', e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Does not need the typed names: the zip is just the photo files plus a manifest.
+  const shareZip = async () => {
+    if (zipBusy) return;
+    setZipBusy(true);
+    try {
+      await exportPhotosZip(await getDb(), inspectionId);
+    } catch (e) {
+      Alert.alert('Photo export failed', e instanceof Error ? e.message : String(e));
+    } finally {
+      setZipBusy(false);
     }
   };
 
@@ -70,6 +85,20 @@ export default function ExportReport() {
         {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Export PDF</Text>}
       </Pressable>
       {busy && <Text style={styles.status}>Building PDF...</Text>}
+      <Pressable
+        style={[styles.secondary, zipBusy && styles.disabled]}
+        disabled={zipBusy}
+        accessibilityRole="button"
+        accessibilityLabel="Share full-resolution photos (.zip)"
+        accessibilityState={{ disabled: zipBusy, busy: zipBusy }}
+        onPress={shareZip}
+      >
+        {zipBusy ? (
+          <ActivityIndicator color="#1a73e8" />
+        ) : (
+          <Text style={styles.secondaryText}>Share full-resolution photos (.zip)</Text>
+        )}
+      </Pressable>
     </ScrollView>
   );
 }
@@ -82,5 +111,7 @@ const styles = StyleSheet.create({
   button: { minHeight: 48, borderRadius: 8, backgroundColor: '#1a73e8', alignItems: 'center', justifyContent: 'center', marginTop: 24 },
   disabled: { opacity: 0.5 },
   buttonText: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  secondary: { minHeight: 48, borderRadius: 8, borderWidth: 1, borderColor: '#1a73e8', alignItems: 'center', justifyContent: 'center', marginTop: 16 },
+  secondaryText: { color: '#1a73e8', fontSize: 17, fontWeight: '600' },
   status: { marginTop: 8, textAlign: 'center', color: '#666' },
 });
