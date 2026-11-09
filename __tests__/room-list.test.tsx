@@ -164,3 +164,35 @@ test('a failed comparison export shows an alert', async () => {
   await fireEvent.press(await screen.findByLabelText('Export comparison'));
   expect(alert).toHaveBeenCalledWith('Comparison export failed', 'boom');
 });
+
+test('Start move-out shows only for a finished move-in and opens the new inspection', async () => {
+  const { router } = jest.requireMock('expo-router');
+  r.copyFromMoveIn.mockResolvedValue(7);
+  for (const insp of [
+    { kind: 'move_in', finished_at: null },
+    { kind: 'move_out', finished_at: 5 },
+  ]) {
+    r.getInspection.mockResolvedValue({ id: 1, address: '1 Main St', ...insp } as never);
+    await render(<RoomList />);
+    await screen.findByText('Kitchen');
+    expect(screen.queryByLabelText('Start move-out')).toBeNull();
+  }
+
+  r.getInspection.mockResolvedValue({ id: 1, address: '1 Main St', kind: 'move_in', finished_at: 5 } as never);
+  await render(<RoomList />);
+  await fireEvent.press(await screen.findByLabelText('Start move-out'));
+  expect(r.copyFromMoveIn).toHaveBeenCalledWith({}, 1);
+  expect(router.push).toHaveBeenCalledWith('/inspection/7');
+});
+
+test('Start move-out failure shows an alert instead of navigating', async () => {
+  const { router } = jest.requireMock('expo-router');
+  router.push.mockClear();
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  r.copyFromMoveIn.mockRejectedValue(new Error('Only a finished move-in can start a move-out.'));
+  r.getInspection.mockResolvedValue({ id: 1, address: '1 Main St', kind: 'move_in', finished_at: 5 } as never);
+  await render(<RoomList />);
+  await fireEvent.press(await screen.findByLabelText('Start move-out'));
+  expect(alert).toHaveBeenCalledWith('Could not start move-out', 'Only a finished move-in can start a move-out.');
+  expect(router.push).not.toHaveBeenCalled();
+});

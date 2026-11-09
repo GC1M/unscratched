@@ -20,7 +20,8 @@
     "modulePathIgnorePatterns": [
       "<rootDir>/.claude/"
     ],
-    "testTimeout": 15000
+    "testTimeout": 15000,
+    "globalSetup": "<rootDir>/jest.globalSetup.js"
   },
   "dependencies": {
     "expo": "~58.0.19",
@@ -30,6 +31,7 @@
     "expo-file-system": "~58.0.13",
     "expo-image-manipulator": "~58.0.16",
     "expo-linking": "~58.0.14",
+    "expo-notifications": "~58.1.8",
     "expo-print": "~58.0.8",
     "expo-router": "~58.0.26",
     "expo-sharing": "~58.0.22",

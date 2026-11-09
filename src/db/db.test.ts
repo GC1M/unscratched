@@ -243,6 +243,85 @@ describe('repo', () => {
     expect((await repo.listInspectionPhotos(db, insp)).map((p) => p.file_uri)).toEqual(['walls', 'tub-early', 'tub-late', 'sink']);
   });
 
+  describe('copyFromMoveIn', () => {
+    async function moveIn(finish = true) {
+      const f = await setup();
+      const { db } = f;
+      const insp = await repo.createInspection(db, {
+        address: '1 Main St',
+        unit: '2B',
+        tenant_name: 'Tia',
+        landlord_name: 'Lou',
+        move_out_date: 99,
+      });
+      const kitchen = await repo.addRoom(db, insp, 'Kitchen');
+      const bath = await repo.addRoom(db, insp, 'Bath');
+      const walls = await repo.addItem(db, kitchen, 'Walls');
+      await repo.addItem(db, kitchen, 'Floor');
+      await repo.addItem(db, bath, 'Tub');
+      await repo.setCondition(db, walls, 'damaged');
+      await repo.setNote(db, walls, 'scuff');
+      await repo.insertPhoto(db, {
+        item_id: walls,
+        file_uri: 'f',
+        sha256: 's',
+        captured_at: 1,
+        width: 1,
+        height: 1,
+        source: 'camera',
+      });
+      if (finish) await repo.finishInspection(db, insp);
+      return { ...f, insp };
+    }
+
+    const shape = async (db: SQLiteDatabase, insp: number) =>
+      Promise.all(
+        (await repo.listRooms(db, insp)).map(async (r) => ({
+          name: r.name,
+          sort: r.sort,
+          items: (await repo.listItems(db, r.id)).map((i) => ({ name: i.name, sort: i.sort })),
+        })),
+      );
+
+    test('copies rooms and items with no photos or conditions, and links back', async () => {
+      const { raw, db, insp } = await moveIn();
+      const out = await repo.copyFromMoveIn(db, insp);
+
+      const copy = await repo.getInspection(db, out);
+      expect(copy).toMatchObject({
+        kind: 'move_out',
+        linked_move_in_id: insp,
+        address: '1 Main St',
+        unit: '2B',
+        tenant_name: 'Tia',
+        landlord_name: 'Lou',
+        move_out_date: 99,
+        finished_at: null,
+      });
+      expect(await shape(db, out)).toEqual(await shape(db, insp));
+      expect((await shape(db, out)).flatMap((r) => r.items)).toHaveLength(3);
+      const items = await repo.listInspectionItems(db, out);
+      expect(items.every((i) => i.condition === null && i.note === null)).toBe(true);
+      expect(await repo.listInspectionPhotos(db, out)).toEqual([]);
+      expect(count(raw, 'photo')).toBe(1);
+    });
+
+    test('throws for an unfinished move-in and creates nothing', async () => {
+      const { raw, db, insp } = await moveIn(false);
+      await expect(repo.copyFromMoveIn(db, insp)).rejects.toThrow('finished move-in');
+      expect(count(raw, 'inspection')).toBe(1);
+      expect(count(raw, 'room')).toBe(2);
+    });
+
+    test('throws for a missing inspection or a finished move-out', async () => {
+      const { db, insp } = await moveIn();
+      await expect(repo.copyFromMoveIn(db, 999)).rejects.toThrow('finished move-in');
+      const out = await repo.copyFromMoveIn(db, insp);
+      await repo.finishInspection(db, out);
+      await expect(repo.copyFromMoveIn(db, out)).rejects.toThrow('finished move-in');
+    });
+  });
+
   describe('finished inspections are locked', () => {
     const EDITS = [
       'setCondition',

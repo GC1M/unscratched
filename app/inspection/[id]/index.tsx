@@ -7,6 +7,7 @@ import { FinishedBanner } from '@/components/FinishedBanner';
 import { getDb } from '@/db/client';
 import {
   addRoom,
+  copyFromMoveIn,
   deleteRoom,
   finishInspection,
   getInspection,
@@ -15,7 +16,7 @@ import {
   moveRoom,
   renameRoom,
 } from '@/db/repo';
-import type { Room } from '@/db/types';
+import type { InspectionKind, Room } from '@/db/types';
 import { progress, type Progress } from '@/lib/progress';
 import { exportComparison } from '@/report/exportComparison';
 
@@ -27,6 +28,7 @@ export default function RoomList() {
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
   const [comparable, setComparable] = useState(false);
   const [comparing, setComparing] = useState(false);
+  const [kind, setKind] = useState<InspectionKind | null>(null);
   const [summary, setSummary] = useState<Progress | null>(null);
   const [rooms, setRooms] = useState<RoomRow[]>([]);
   const [editing, setEditing] = useState<{ id: number; name: string } | null>(null);
@@ -38,6 +40,7 @@ export default function RoomList() {
     setAddress(inspection?.address ?? '');
     setFinishedAt(inspection?.finished_at ?? null);
     setComparable(inspection?.kind === 'move_out' && inspection.linked_move_in_id != null);
+    setKind(inspection?.kind ?? null);
     const [list, items] = await Promise.all([listRooms(db, inspectionId), listInspectionItems(db, inspectionId)]);
     setSummary(progress(list, items));
     setRooms(
@@ -98,6 +101,20 @@ export default function RoomList() {
       Alert.alert('Comparison export failed', e instanceof Error ? e.message : String(e));
     } finally {
       setComparing(false);
+    }
+  };
+
+  const [starting, setStarting] = useState(false);
+  const startMoveOut = async () => {
+    if (starting) return;
+    setStarting(true);
+    try {
+      const id = await copyFromMoveIn(await getDb(), inspectionId);
+      router.push(`/inspection/${id}`);
+    } catch (e) {
+      Alert.alert('Could not start move-out', e instanceof Error ? e.message : String(e));
+    } finally {
+      setStarting(false);
     }
   };
 
@@ -184,6 +201,18 @@ export default function RoomList() {
           accessibilityLabel="Export comparison"
         >
           <Text style={styles.finishText}>{comparing ? 'Building comparison...' : 'Export comparison'}</Text>
+        </Pressable>
+      )}
+      {locked && kind === 'move_in' && (
+        <Pressable
+          style={styles.finish}
+          onPress={startMoveOut}
+          disabled={starting}
+          accessibilityRole="button"
+          accessibilityLabel="Start move-out"
+          accessibilityState={{ disabled: starting, busy: starting }}
+        >
+          <Text style={styles.finishText}>Start move-out</Text>
         </Pressable>
       )}
       {!locked && (
