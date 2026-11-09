@@ -40,7 +40,7 @@ export default function NewInspection() {
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: 'New move-in inspection' }} />
       <Text style={styles.label}>Address (required)</Text>
-      <TextInput style={styles.input} value={address} onChangeText={setAddress} accessibilityLabel="Address" />
+      <TextInput style={styles.input} value={address} onChangeText={(t) => { setAddress(t); setError(null); }} accessibilityLabel="Address" />
       {error && <Text style={styles.error}>{error}</Text>}
       <Text style={styles.label}>Unit</Text>
       <TextInput style={styles.input} value={unit} onChangeText={setUnit} accessibilityLabel="Unit" />

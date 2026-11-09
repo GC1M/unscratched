@@ -39,3 +39,11 @@ test('valid submit creates with trimmed values and navigates to the inspection',
   );
   expect(screen.queryByText('Address is required')).toBeNull();
 });
+
+test('the address error clears once the user types an address', async () => {
+  await render(<NewInspection />);
+  await fireEvent.press(screen.getByRole('button', { name: 'Start inspection' }));
+  expect(await screen.findByText('Address is required')).toBeOnTheScreen();
+  await fireEvent.changeText(screen.getByLabelText('Address'), '1');
+  expect(screen.queryByText('Address is required')).toBeNull();
+});
