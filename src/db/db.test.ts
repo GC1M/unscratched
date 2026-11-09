@@ -398,4 +398,31 @@ describe('repo', () => {
     const item = await repo.addItem(db, await repo.addRoom(db, insp, 'Kitchen'), 'Walls');
     await expect(repo.setCondition(db, item, 'broken' as never)).rejects.toThrow();
   });
+
+  test('receipts: finished photo hashes only, stored once, first receipt kept', async () => {
+    const { db } = await setup();
+    const add = async (finish: boolean, hashes: string[]) => {
+      const insp = await repo.createInspection(db, { address: 'x' });
+      const item = await repo.addItem(db, await repo.addRoom(db, insp, 'Kitchen'), 'Walls');
+      for (const sha256 of hashes) {
+        await repo.insertPhoto(db, { item_id: item, file_uri: sha256, sha256, captured_at: 1, width: 1, height: 1, source: 'camera' });
+      }
+      if (finish) await repo.finishInspection(db, insp);
+      return insp;
+    };
+    const done = await add(true, ['a', 'b']);
+    await add(false, ['c']);
+    expect(await repo.listFinishedPhotoHashes(db)).toEqual([
+      { inspection_id: done, sha256: 'a' },
+      { inspection_id: done, sha256: 'b' },
+    ]);
+
+    expect(await repo.listReceipts(db)).toEqual({});
+    await repo.saveReceipts(db, [{ sha256: 'a', receipt_id: 'r1', server_time: 10 }]);
+    await repo.saveReceipts(db, [
+      { sha256: 'a', receipt_id: 'r2', server_time: 20 },
+      { sha256: 'b', receipt_id: 'r3', server_time: 30 },
+    ]);
+    expect(await repo.listReceipts(db)).toEqual({ a: 10, b: 30 });
+  });
 });

@@ -1,6 +1,6 @@
 import type { Photo } from '@/db/types';
 
-import { CONDITION_LABELS, defaultFormatDate } from './buildReportHtml';
+import { CONDITION_LABELS, defaultFormatDate, receiptLine, verificationText } from './buildReportHtml';
 import type { Comparison, ComparisonItem } from './comparison';
 import { escapeHtml } from './escapeHtml';
 import type { ReportItem } from './types';
@@ -46,6 +46,7 @@ export function buildComparisonHtml(c: Comparison, opts?: { formatDate?: (ms: nu
   const fmt = opts?.formatDate ?? defaultFormatDate;
   const row = (label: string, value: string) => `<dt>${label}</dt><dd>${value}</dd>`;
   const finished = (ms: number | null) => (ms != null ? fmt(ms) : 'Not finished');
+  const hasPhotos = (side: 'moveIn' | 'moveOut') => c.rooms.some((r) => r.items.some((i) => i[side]?.photos.length));
 
   const cover = `<section class="cover">
 <h1>Move-in vs move-out comparison</h1>
@@ -56,6 +57,8 @@ ${row('Move-in finished', finished(c.moveIn.finished_at))}
 ${row('Move-out finished', finished(c.moveOut.finished_at))}
 ${row('Worsened items', String(c.worsenedCount))}
 ${row('Generated', fmt(c.generatedAt))}
+${hasPhotos('moveIn') ? row('Move-in verification', verificationText(c.moveInCode)) : ''}
+${hasPhotos('moveOut') ? row('Move-out verification', verificationText(c.moveOutCode)) : ''}
 </dl>
 <p>Rows marked "Worse" are items whose condition got worse between move-in and move-out. Photos were taken in the Unscratched app; each photo's SHA-256 fingerprint is listed so the files can be checked later.</p>
 </section>`;
@@ -65,7 +68,7 @@ ${row('Generated', fmt(c.generatedAt))}
     const src = c.thumbnails[photo.id];
     const caption = `${escapeHtml(name)} - ${label}`;
     const image = src ? `<img src="${escapeHtml(src)}" alt="${caption}">` : '<div class="missing">Photo unavailable</div>';
-    return `<div class="card">${image}<div>${caption}</div><div>${fmt(photo.captured_at)}</div><div class="hash">SHA-256: ${escapeHtml(photo.sha256.slice(0, 12))}</div></div>`;
+    return `<div class="card">${image}<div>${caption}</div><div>${fmt(photo.captured_at)}</div><div>${receiptLine(c.receipts, photo.sha256, fmt)}</div><div class="hash">SHA-256: ${escapeHtml(photo.sha256.slice(0, 12))}</div></div>`;
   };
 
   const roomSections = c.rooms.map(({ name, items }) => {

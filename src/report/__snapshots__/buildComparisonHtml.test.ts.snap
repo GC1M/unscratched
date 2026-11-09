@@ -39,6 +39,8 @@ footer { margin-top: 24pt; font-size: 8pt; color: #666; }
 <dt>Move-out finished</dt><dd>2027-01-02T11:00:00.000Z</dd>
 <dt>Worsened items</dt><dd>1</dd>
 <dt>Generated</dt><dd>2027-01-03T09:00:00.000Z</dd>
+<dt>Move-in verification</dt><dd>Verification pending</dd>
+<dt>Move-out verification</dt><dd>Verification code: abcdef012345<br>unscratched.app/v/abcdef012345</dd>
 </dl>
 <p>Rows marked "Worse" are items whose condition got worse between move-in and move-out. Photos were taken in the Unscratched app; each photo's SHA-256 fingerprint is listed so the files can be checked later.</p>
 </section>
@@ -53,10 +55,10 @@ footer { margin-top: 24pt; font-size: 8pt; color: #666; }
 <tr><td>Tub</td><td>Not recorded</td><td>Damaged</td><td>Not recorded</td></tr>
 </tbody></table>
 <h3>&quot; onerror=&quot;alert(1) (Worse)</h3>
-<div class="pair"><div class="card"><img src="data:image/jpeg;base64,AAA" alt="&quot; onerror=&quot;alert(1) - move-in"><div>&quot; onerror=&quot;alert(1) - move-in</div><div>2026-01-02T10:01:00.000Z</div><div class="hash">SHA-256: 111111111111</div></div><div class="card"><img src="data:image/jpeg;base64,BBB" alt="&quot; onerror=&quot;alert(1) - move-out"><div>&quot; onerror=&quot;alert(1) - move-out</div><div>2026-01-02T10:02:00.000Z</div><div class="hash">SHA-256: 222222222222</div></div></div>
-<div class="pair"><div class="card"><div class="missing">No move-in photo</div></div><div class="card"><div class="missing">Photo unavailable</div><div>&quot; onerror=&quot;alert(1) - move-out</div><div>2026-01-02T10:03:00.000Z</div><div class="hash">SHA-256: 333333333333</div></div></div>
+<div class="pair"><div class="card"><img src="data:image/jpeg;base64,AAA" alt="&quot; onerror=&quot;alert(1) - move-in"><div>&quot; onerror=&quot;alert(1) - move-in</div><div>2026-01-02T10:01:00.000Z</div><div>Server time: 2026-01-02T12:00:00.000Z</div><div class="hash">SHA-256: 111111111111</div></div><div class="card"><img src="data:image/jpeg;base64,BBB" alt="&quot; onerror=&quot;alert(1) - move-out"><div>&quot; onerror=&quot;alert(1) - move-out</div><div>2026-01-02T10:02:00.000Z</div><div>Server time: 2027-01-02T12:00:00.000Z</div><div class="hash">SHA-256: 222222222222</div></div></div>
+<div class="pair"><div class="card"><div class="missing">No move-in photo</div></div><div class="card"><div class="missing">Photo unavailable</div><div>&quot; onerror=&quot;alert(1) - move-out</div><div>2026-01-02T10:03:00.000Z</div><div>Receipt pending</div><div class="hash">SHA-256: 333333333333</div></div></div>
 <h3>Sink</h3>
-<div class="pair"><div class="card"><img src="data:image/jpeg;base64,DDD" alt="Sink - move-in"><div>Sink - move-in</div><div>2026-01-02T10:04:00.000Z</div><div class="hash">SHA-256: 444444444444</div></div><div class="card"><img src="data:image/jpeg;base64,EEE" alt="Sink - move-out"><div>Sink - move-out</div><div>2026-01-02T10:05:00.000Z</div><div class="hash">SHA-256: 555555555555</div></div></div>
+<div class="pair"><div class="card"><img src="data:image/jpeg;base64,DDD" alt="Sink - move-in"><div>Sink - move-in</div><div>2026-01-02T10:04:00.000Z</div><div>Receipt pending</div><div class="hash">SHA-256: 444444444444</div></div><div class="card"><img src="data:image/jpeg;base64,EEE" alt="Sink - move-out"><div>Sink - move-out</div><div>2026-01-02T10:05:00.000Z</div><div>Receipt pending</div><div class="hash">SHA-256: 555555555555</div></div></div>
 </section>
 <footer><p>Not legal advice.</p><p>Made with Unscratched (free)</p></footer>
 </body>
@@ -103,6 +105,8 @@ footer { margin-top: 24pt; font-size: 8pt; color: #666; }
 <dt>Move-out finished</dt><dd>2027-01-02T11:00:00.000Z</dd>
 <dt>Worsened items</dt><dd>1</dd>
 <dt>Generated</dt><dd>2027-01-03T09:00:00.000Z</dd>
+<dt>Move-in verification</dt><dd>Verification pending</dd>
+<dt>Move-out verification</dt><dd>Verification code: abcdef012345<br>unscratched.app/v/abcdef012345</dd>
 </dl>
 <p>Rows marked "Worse" are items whose condition got worse between move-in and move-out. Photos were taken in the Unscratched app; each photo's SHA-256 fingerprint is listed so the files can be checked later.</p>
 </section>
@@ -117,10 +121,10 @@ footer { margin-top: 24pt; font-size: 8pt; color: #666; }
 <tr><td>Tub</td><td>Not recorded</td><td>Damaged</td><td>Not recorded</td></tr>
 </tbody></table>
 <h3>Oven (Worse)</h3>
-<div class="pair"><div class="card"><img src="data:image/jpeg;base64,AAA" alt="Oven - move-in"><div>Oven - move-in</div><div>2026-01-02T10:01:00.000Z</div><div class="hash">SHA-256: 111111111111</div></div><div class="card"><img src="data:image/jpeg;base64,BBB" alt="Oven - move-out"><div>Oven - move-out</div><div>2026-01-02T10:02:00.000Z</div><div class="hash">SHA-256: 222222222222</div></div></div>
-<div class="pair"><div class="card"><div class="missing">No move-in photo</div></div><div class="card"><div class="missing">Photo unavailable</div><div>Oven - move-out</div><div>2026-01-02T10:03:00.000Z</div><div class="hash">SHA-256: 333333333333</div></div></div>
+<div class="pair"><div class="card"><img src="data:image/jpeg;base64,AAA" alt="Oven - move-in"><div>Oven - move-in</div><div>2026-01-02T10:01:00.000Z</div><div>Server time: 2026-01-02T12:00:00.000Z</div><div class="hash">SHA-256: 111111111111</div></div><div class="card"><img src="data:image/jpeg;base64,BBB" alt="Oven - move-out"><div>Oven - move-out</div><div>2026-01-02T10:02:00.000Z</div><div>Server time: 2027-01-02T12:00:00.000Z</div><div class="hash">SHA-256: 222222222222</div></div></div>
+<div class="pair"><div class="card"><div class="missing">No move-in photo</div></div><div class="card"><div class="missing">Photo unavailable</div><div>Oven - move-out</div><div>2026-01-02T10:03:00.000Z</div><div>Receipt pending</div><div class="hash">SHA-256: 333333333333</div></div></div>
 <h3>Sink</h3>
-<div class="pair"><div class="card"><img src="data:image/jpeg;base64,DDD" alt="Sink - move-in"><div>Sink - move-in</div><div>2026-01-02T10:04:00.000Z</div><div class="hash">SHA-256: 444444444444</div></div><div class="card"><img src="data:image/jpeg;base64,EEE" alt="Sink - move-out"><div>Sink - move-out</div><div>2026-01-02T10:05:00.000Z</div><div class="hash">SHA-256: 555555555555</div></div></div>
+<div class="pair"><div class="card"><img src="data:image/jpeg;base64,DDD" alt="Sink - move-in"><div>Sink - move-in</div><div>2026-01-02T10:04:00.000Z</div><div>Receipt pending</div><div class="hash">SHA-256: 444444444444</div></div><div class="card"><img src="data:image/jpeg;base64,EEE" alt="Sink - move-out"><div>Sink - move-out</div><div>2026-01-02T10:05:00.000Z</div><div>Receipt pending</div><div class="hash">SHA-256: 555555555555</div></div></div>
 </section>
 <footer><p>Not legal advice.</p><p>Made with Unscratched (free)</p></footer>
 </body>

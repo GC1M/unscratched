@@ -5,3 +5,4 @@ export interface Room { id: number; inspection_id: number; name: string; sort: n
 export interface Item { id: number; room_id: number; name: string; condition: Condition | null; note: string | null; sort: number; }
 export interface Photo { id: number; item_id: number; file_uri: string; sha256: string; captured_at: number; width: number; height: number; source: 'camera'; }
 export interface TemplateRoom { name: string; items: string[]; }
+export interface Receipt { sha256: string; receipt_id: string; server_time: number; }

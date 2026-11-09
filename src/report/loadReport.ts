@@ -1,11 +1,12 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { getInspection, listInspectionItems, listInspectionPhotos, listRooms } from '@/db/repo';
+import { getInspection, listInspectionItems, listInspectionPhotos, listReceipts, listRooms } from '@/db/repo';
+import { manifestHash, verificationCode } from '@/receipts/manifest';
 
 import { buildThumbnails } from './thumbnails';
 import type { Acknowledgement, ReportData } from './types';
 
-/** Reads the inspection with its rooms, items, and photos (4 queries total) and builds the photo thumbnails. */
+/** Reads the inspection with its rooms, items, photos, and receipts (5 queries total) and builds the photo thumbnails. */
 export async function loadReportData(
   db: SQLiteDatabase,
   inspectionId: number,
@@ -13,11 +14,13 @@ export async function loadReportData(
 ): Promise<ReportData> {
   const inspection = await getInspection(db, inspectionId);
   if (!inspection) throw new Error(`Inspection ${inspectionId} not found`);
-  const [rooms, items, photos] = await Promise.all([
+  const [rooms, items, photos, receipts] = await Promise.all([
     listRooms(db, inspectionId),
     listInspectionItems(db, inspectionId),
     listInspectionPhotos(db, inspectionId),
+    listReceipts(db),
   ]);
+  const manifest = await manifestHash(photos.map((p) => p.sha256));
   return {
     inspection,
     rooms: rooms.map((room) => ({
@@ -29,5 +32,7 @@ export async function loadReportData(
     thumbnails: await buildThumbnails(photos),
     acknowledgement,
     generatedAt: Date.now(),
+    receipts,
+    verificationCode: manifest && manifest in receipts ? verificationCode(manifest) : null,
   };
 }
