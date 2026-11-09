@@ -31,6 +31,15 @@ function Navigator() {
       >
         <Stack.Protected guard={onboarded}>
           <Stack.Screen name="index" options={{ title: 'Unscratched', headerLargeTitleStyle: { fontSize: 34, color: c.ink } }} />
+          {/* Every app route sits behind the guard: an unlisted route stays reachable, and on a fresh
+              install the router fell back to /settings instead of onboarding. */}
+          <Stack.Screen name="settings" />
+          <Stack.Screen name="inspection/new" />
+          <Stack.Screen name="inspection/[id]/index" />
+          <Stack.Screen name="inspection/[id]/export" />
+          <Stack.Screen name="inspection/[id]/room/[roomId]" />
+          <Stack.Screen name="item/[id]" />
+          <Stack.Screen name="camera/[itemId]" />
         </Stack.Protected>
         <Stack.Protected guard={!onboarded}>
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />

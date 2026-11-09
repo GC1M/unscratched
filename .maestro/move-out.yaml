@@ -1,0 +1,15 @@
+# Flow 2: start a move-out from a finished move-in, set conditions, export the comparison.
+# Runs Flow 1 first so it does not depend on run order.
+appId: app.unscratched
+name: Move-out to comparison
+---
+- runFlow: move-in.yaml
+- launchApp
+- tapOn: "12 Elm Street, Move-in, finished"
+- tapOn: "Start move-out"
+- runFlow: { file: subflows/walk-room.yaml, env: { ROOM: Hallway, CONDITION: Good } }
+- runFlow: { file: subflows/walk-room.yaml, env: { ROOM: Appliances, CONDITION: Damaged } }
+- tapOn: "Finish inspection"
+- tapOn: "Finish and lock"
+- tapOn: "Export comparison"
+- runFlow: subflows/dismiss-share-sheet.yaml

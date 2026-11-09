@@ -1,0 +1,7 @@
+# Asserts the iOS share sheet is up, then closes it.
+appId: app.unscratched
+---
+- extendedWaitUntil:
+    visible: "Copy"
+    timeout: 30000
+- tapOn: "Close"

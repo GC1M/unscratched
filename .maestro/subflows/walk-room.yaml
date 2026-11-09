@@ -1,0 +1,16 @@
+# Opens ${ROOM} from the room list and marks every item ${CONDITION}, then returns to the room list.
+appId: app.unscratched
+---
+- tapOn: "Open ${ROOM}, .*"
+- tapOn: "Continue with .*"
+- repeat:
+    while:
+      visible: "Next: .*"
+    commands:
+      - tapOn: ${CONDITION}
+      - tapOn: "Next: .*"
+- tapOn: ${CONDITION}
+- tapOn: "Done with ${ROOM}"
+- assertVisible: "5 of 5 items checked"
+- tapOn:
+    id: "BackButton"
