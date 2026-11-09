@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "unscratched",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "app.unscratched"
     },
@@ -24,7 +24,7 @@
         }
       ],
       "expo-sharing",
-      "expo-notifications"
+      "expo-font"
     ]
   }
 }

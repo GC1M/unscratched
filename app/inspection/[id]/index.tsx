@@ -1,9 +1,14 @@
 import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/Button';
+import { ConditionMark } from '@/components/ConditionMark';
 import { FinishedBanner } from '@/components/FinishedBanner';
+import { Group, Row, RowTitle } from '@/components/Group';
+import { InlineInput } from '@/components/InlineInput';
+import { ProgressBar } from '@/components/ProgressBar';
+import { Floating, Screen } from '@/components/Screen';
 import { getDb } from '@/db/client';
 import {
   addRoom,
@@ -16,38 +21,49 @@ import {
   moveRoom,
   renameRoom,
 } from '@/db/repo';
-import type { InspectionKind, Room } from '@/db/types';
+import type { Inspection, Room } from '@/db/types';
+import { kindLabel, shortDate } from '@/lib/format';
+import { nextRoom } from '@/lib/next';
 import { progress, type Progress } from '@/lib/progress';
 import { syncReceipts } from '@/receipts/queue';
 import { exportComparison } from '@/report/exportComparison';
+import { useTheme } from '@/theme';
 
-type RoomRow = Room & { done: number; total: number };
+type RoomRow = Room & { done: number; total: number; fair: number; damaged: number };
 
 export default function RoomList() {
+  const { c } = useTheme();
   const inspectionId = Number(useLocalSearchParams<{ id: string }>().id);
-  const [address, setAddress] = useState('');
-  const [finishedAt, setFinishedAt] = useState<number | null>(null);
-  const [comparable, setComparable] = useState(false);
-  const [comparing, setComparing] = useState(false);
-  const [kind, setKind] = useState<InspectionKind | null>(null);
+  const [inspection, setInspection] = useState<Inspection | null>(null);
   const [summary, setSummary] = useState<Progress | null>(null);
+  const [next, setNext] = useState<Room | null>(null);
   const [rooms, setRooms] = useState<RoomRow[]>([]);
-  const [editing, setEditing] = useState<{ id: number; name: string } | null>(null);
-  const [newName, setNewName] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [renaming, setRenaming] = useState<{ id: number; name: string } | null>(null);
+  const [adding, setAdding] = useState<string | null>(null);
+  const [comparing, setComparing] = useState(false);
+  const [starting, setStarting] = useState(false);
 
   const load = useCallback(async () => {
     const db = await getDb();
-    const inspection = await getInspection(db, inspectionId);
-    setAddress(inspection?.address ?? '');
-    setFinishedAt(inspection?.finished_at ?? null);
-    setComparable(inspection?.kind === 'move_out' && inspection.linked_move_in_id != null);
-    setKind(inspection?.kind ?? null);
-    const [list, items] = await Promise.all([listRooms(db, inspectionId), listInspectionItems(db, inspectionId)]);
+    const [found, list, items] = await Promise.all([
+      getInspection(db, inspectionId),
+      listRooms(db, inspectionId),
+      listInspectionItems(db, inspectionId),
+    ]);
+    setInspection(found);
     setSummary(progress(list, items));
+    setNext(nextRoom(list, items));
     setRooms(
       list.map((room) => {
         const own = items.filter((i) => i.room_id === room.id);
-        return { ...room, done: own.filter((i) => i.condition != null).length, total: own.length };
+        return {
+          ...room,
+          done: own.filter((i) => i.condition != null).length,
+          total: own.length,
+          fair: own.filter((i) => i.condition === 'fair').length,
+          damaged: own.filter((i) => i.condition === 'damaged').length,
+        };
       }),
     );
   }, [inspectionId]);
@@ -64,17 +80,16 @@ export default function RoomList() {
   };
 
   const add = async () => {
-    const name = newName.trim();
-    if (!name) return;
-    setNewName('');
-    await run((db) => addRoom(db, inspectionId, name));
+    const name = adding?.trim();
+    setAdding(null);
+    if (name) await run((db) => addRoom(db, inspectionId, name));
   };
 
   const saveRename = async () => {
-    if (!editing) return;
-    const name = editing.name.trim();
-    setEditing(null);
-    if (name) await run((db) => renameRoom(db, editing.id, name));
+    if (!renaming) return;
+    const name = renaming.name.trim();
+    setRenaming(null);
+    if (name) await run((db) => renameRoom(db, renaming.id, name));
   };
 
   const confirmDelete = (room: Room) =>
@@ -83,14 +98,15 @@ export default function RoomList() {
       { text: 'Delete', style: 'destructive', onPress: () => run((db) => deleteRoom(db, room.id)) },
     ]);
 
+  // ponytail: system alert instead of a custom form sheet; swap for presentation: 'formSheet' if the sheet matters.
   const confirmFinish = () =>
     Alert.alert(
-      'Finish inspection?',
-      "A finished inspection can't be edited. Conditions, notes, rooms, and photos will be locked so the report can be trusted.",
+      'Finish this inspection?',
+      'Conditions, notes, rooms and photos lock so the report can be trusted. You can still export it any time.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Not yet', style: 'cancel' },
         {
-          text: 'Finish',
+          text: 'Finish and lock',
           onPress: () =>
             run(async (db) => {
               await finishInspection(db, inspectionId);
@@ -112,7 +128,6 @@ export default function RoomList() {
     }
   };
 
-  const [starting, setStarting] = useState(false);
   const startMoveOut = async () => {
     if (starting) return;
     setStarting(true);
@@ -126,139 +141,152 @@ export default function RoomList() {
     }
   };
 
-  const locked = finishedAt != null;
+  const locked = inspection?.finished_at != null;
+  const comparable = inspection?.kind === 'move_out' && inspection.linked_move_in_id != null;
+  const allDone = !!summary && summary.itemsTotal > 0 && summary.roomsDone === summary.roomsTotal;
+  const roomsLeft = summary ? summary.roomsTotal - summary.roomsDone : 0;
 
   return (
-    <View style={styles.container}>
-      <Stack.Screen options={{ title: address }} />
-      {locked && <FinishedBanner finishedAt={finishedAt} />}
-      {summary && (
-        <Text style={styles.summary}>
-          {summary.roomsDone} of {summary.roomsTotal} rooms done
-        </Text>
-      )}
-      <FlatList
-        data={rooms}
-        keyExtractor={(r) => String(r.id)}
-        renderItem={({ item: room }) =>
-          editing?.id === room.id ? (
-            <View style={styles.row}>
-              <TextInput
-                style={[styles.input, styles.grow]}
-                value={editing.name}
-                onChangeText={(name) => setEditing({ id: room.id, name })}
-                accessibilityLabel="Room name"
-                autoFocus
+    <>
+      <Stack.Screen options={{ title: inspection?.address ?? '' }}>
+        {!locked && (
+          <Stack.Toolbar placement="right">
+            <Stack.Toolbar.Button accessibilityLabel={editing ? 'Done editing' : 'Edit rooms'} onPress={() => setEditing((e) => !e)}>
+              {editing ? 'Done' : 'Edit'}
+            </Stack.Toolbar.Button>
+          </Stack.Toolbar>
+        )}
+      </Stack.Screen>
+      <Screen>
+        {inspection && (
+          <Text style={[styles.subtitle, { color: c.ink60 }]}>
+            {kindLabel(inspection.kind)}, started {shortDate(inspection.started_at)}
+          </Text>
+        )}
+        {locked && inspection?.finished_at != null && <FinishedBanner finishedAt={inspection.finished_at} />}
+        {summary && (
+          <View style={styles.progress}>
+            <ProgressBar done={summary.itemsDone} total={summary.itemsTotal} note={`${summary.roomsDone} of ${summary.roomsTotal} rooms`} />
+          </View>
+        )}
+        <Group>
+          {rooms.map((room, idx) =>
+            renaming?.id === room.id ? (
+              <InlineInput
+                key={room.id}
+                value={renaming.name}
+                onChangeText={(name) => setRenaming({ id: room.id, name })}
+                onSubmit={saveRename}
+                onCancel={() => setRenaming(null)}
+                a11y="Room name"
               />
-              <Button label="Save" onPress={saveRename} />
-              <Button label="Cancel" onPress={() => setEditing(null)} />
-            </View>
-          ) : (
-            <View style={styles.row}>
-              <Pressable
-                style={styles.grow}
-                onPress={() => router.push(`/inspection/${inspectionId}/room/${room.id}`)}
-                accessibilityRole="button"
-                accessibilityLabel={`Open ${room.name}`}
+            ) : (
+              <Row
+                key={room.id}
+                first={idx === 0}
+                onPress={editing ? () => setRenaming({ id: room.id, name: room.name }) : () => router.push(`/inspection/${inspectionId}/room/${room.id}`)}
+                a11y={editing ? `Rename ${room.name}` : `Open ${room.name}, ${room.done} of ${room.total} items`}
+                leading={
+                  editing ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Delete ${room.name}`}
+                      onPress={() => confirmDelete(room)}
+                      hitSlop={10}
+                      style={[styles.minus, { backgroundColor: c.damaged }]}
+                    >
+                      <Text style={[styles.minusText, { color: c.onInk }]}>−</Text>
+                    </Pressable>
+                  ) : undefined
+                }
+                trailing={
+                  editing ? (
+                    <View style={styles.reorder}>
+                      <Pressable accessibilityRole="button" accessibilityLabel={`Move ${room.name} up`} hitSlop={8} onPress={() => run((db) => moveRoom(db, room.id, 'up'))} style={styles.arrow}>
+                        <Text style={[styles.arrowText, { color: c.ink60 }]}>↑</Text>
+                      </Pressable>
+                      <Pressable accessibilityRole="button" accessibilityLabel={`Move ${room.name} down`} hitSlop={8} onPress={() => run((db) => moveRoom(db, room.id, 'down'))} style={styles.arrow}>
+                        <Text style={[styles.arrowText, { color: c.ink60 }]}>↓</Text>
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <View style={styles.right}>
+                      {room.fair > 0 && (
+                        <View style={styles.tally}>
+                          <ConditionMark condition="fair" size={10} />
+                          <Text style={[styles.tallyText, { color: c.fairInk }]}>{room.fair}</Text>
+                        </View>
+                      )}
+                      {room.damaged > 0 && (
+                        <View style={styles.tally}>
+                          <ConditionMark condition="damaged" size={10} />
+                          <Text style={[styles.tallyText, { color: c.damaged }]}>{room.damaged}</Text>
+                        </View>
+                      )}
+                      <Text style={[styles.count, { color: c.ink60 }]}>
+                        {room.done} of {room.total}
+                      </Text>
+                      <View style={[styles.chevron, { borderColor: c.ink30 }]} />
+                    </View>
+                  )
+                }
               >
-                <Text style={styles.name}>{room.name}</Text>
-                <Text style={styles.meta}>
-                  {room.done}/{room.total} items
-                </Text>
-              </Pressable>
-              {!locked && (
-                <>
-                  <Button
-                    label="Up"
-                    a11y={`Move ${room.name} up`}
-                    onPress={() => run((db) => moveRoom(db, room.id, 'up'))}
-                  />
-                  <Button
-                    label="Down"
-                    a11y={`Move ${room.name} down`}
-                    onPress={() => run((db) => moveRoom(db, room.id, 'down'))}
-                  />
-                  <Button
-                    label="Rename"
-                    a11y={`Rename ${room.name}`}
-                    onPress={() => setEditing({ id: room.id, name: room.name })}
-                  />
-                  <Button label="Delete" a11y={`Delete ${room.name}`} onPress={() => confirmDelete(room)} />
-                </>
+                <RowTitle>{room.name}</RowTitle>
+              </Row>
+            ),
+          )}
+          {!locked &&
+            (adding != null ? (
+              <InlineInput value={adding} onChangeText={setAdding} onSubmit={add} onCancel={() => setAdding(null)} placeholder="Room name" a11y="New room name" submitLabel="Add" />
+            ) : (
+              <Row first={rooms.length === 0} onPress={() => setAdding('')} a11y="Add room" trailing={<View />} leading={<View style={[styles.plus, { borderColor: c.ink30 }]}><Text style={[styles.plusText, { color: c.ink60 }]}>+</Text></View>}>
+                <Text style={[styles.addText, { color: c.ink60 }]}>Add room</Text>
+              </Row>
+            ))}
+        </Group>
+      </Screen>
+      {!editing && (
+        <Floating>
+          {locked ? (
+            <View style={styles.stack}>
+              <Button label="Export report" onPress={() => router.push(`/inspection/${inspectionId}/export`)} />
+              {comparable && (
+                <Button label={comparing ? 'Building comparison' : 'Export comparison'} a11y="Export comparison" variant="secondary" onPress={shareComparison} busy={comparing} />
+              )}
+              {inspection?.kind === 'move_in' && (
+                <Button label="Start move-out" variant="secondary" onPress={startMoveOut} busy={starting} />
               )}
             </View>
-          )
-        }
-      />
-      {locked && (
-        <Pressable
-          style={styles.finish}
-          onPress={() => router.push(`/inspection/${inspectionId}/export`)}
-          accessibilityRole="button"
-          accessibilityLabel="Export report"
-        >
-          <Text style={styles.finishText}>Export report</Text>
-        </Pressable>
-      )}
-      {locked && comparable && (
-        <Pressable
-          style={[styles.finish, comparing && styles.disabled]}
-          onPress={shareComparison}
-          disabled={comparing}
-          accessibilityRole="button"
-          accessibilityLabel="Export comparison"
-        >
-          <Text style={styles.finishText}>{comparing ? 'Building comparison...' : 'Export comparison'}</Text>
-        </Pressable>
-      )}
-      {locked && kind === 'move_in' && (
-        <Pressable
-          style={styles.finish}
-          onPress={startMoveOut}
-          disabled={starting}
-          accessibilityRole="button"
-          accessibilityLabel="Start move-out"
-          accessibilityState={{ disabled: starting, busy: starting }}
-        >
-          <Text style={styles.finishText}>Start move-out</Text>
-        </Pressable>
-      )}
-      {!locked && (
-        <>
-          <View style={styles.row}>
-            <TextInput
-              style={[styles.input, styles.grow]}
-              value={newName}
-              onChangeText={setNewName}
-              placeholder="New room name"
-              accessibilityLabel="New room name"
-              onSubmitEditing={add}
+          ) : allDone ? (
+            <Button label="Finish inspection" onPress={confirmFinish} />
+          ) : next ? (
+            <Button
+              label={`Continue with ${next.name}`}
+              trailing={`${roomsLeft} ${roomsLeft === 1 ? 'room' : 'rooms'} left`}
+              onPress={() => router.push(`/inspection/${inspectionId}/room/${next.id}`)}
             />
-            <Button label="Add room" onPress={add} />
-          </View>
-          <Pressable
-            style={styles.finish}
-            onPress={confirmFinish}
-            accessibilityRole="button"
-            accessibilityLabel="Finish inspection"
-          >
-            <Text style={styles.finishText}>Finish inspection</Text>
-          </Pressable>
-        </>
+          ) : null}
+        </Floating>
       )}
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 16 },
-  row: { flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 4, paddingVertical: 4 },
-  grow: { flex: 1, minHeight: 44, justifyContent: 'center' },
-  name: { fontSize: 17 },
-  summary: { fontSize: 15, fontWeight: '600', marginBottom: 8 },
-  meta: { fontSize: 13, color: '#666' },
-  finish: { minHeight: 48, borderRadius: 8, backgroundColor: '#137333', alignItems: 'center', justifyContent: 'center', marginTop: 8 },
-  disabled: { opacity: 0.5 },
-  finishText: { color: '#fff', fontSize: 17, fontWeight: '600' },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 8, fontSize: 16 },
+  subtitle: { fontSize: 15, marginTop: -4, marginBottom: 12, marginLeft: 4 },
+  stack: { gap: 8 },
+  progress: { marginBottom: 16, marginHorizontal: 4 },
+  right: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  tally: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  tallyText: { fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  count: { fontSize: 15, fontVariant: ['tabular-nums'] },
+  chevron: { width: 8, height: 8, borderRightWidth: 1.5, borderTopWidth: 1.5, transform: [{ rotate: '45deg' }] },
+  reorder: { flexDirection: 'row', gap: 4 },
+  arrow: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  arrowText: { fontSize: 18 },
+  minus: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  minusText: { fontSize: 18, lineHeight: 20, fontWeight: '600' },
+  plus: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  plusText: { fontSize: 16, lineHeight: 18 },
+  addText: { fontSize: 17 },
 });

@@ -1,15 +1,21 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput } from 'react-native';
+import { Alert, StyleSheet, Text } from 'react-native';
 
+import { Button } from '@/components/Button';
+import { Field } from '@/components/Field';
+import { SectionLabel } from '@/components/Group';
+import { Screen } from '@/components/Screen';
 import { getDb } from '@/db/client';
 import { getInspection } from '@/db/repo';
 import { exportReport } from '@/report/export';
 import { exportPhotosZip } from '@/report/exportPhotosZip';
+import { serifItalic, useTheme } from '@/theme';
 
 // The typed names are passed to the report only. The inspection is finished (locked), so
 // nothing on this screen writes to it.
 export default function ExportReport() {
+  const { c } = useTheme();
   const inspectionId = Number(useLocalSearchParams<{ id: string }>().id);
   const [date, setDate] = useState<number | null>(null);
   const [tenant, setTenant] = useState('');
@@ -58,60 +64,28 @@ export default function ExportReport() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'Export report' }} />
-      {date != null && (
-        <Text style={styles.statement}>
-          I confirm this report reflects the unit&apos;s condition on {new Date(date).toLocaleDateString()}.
-        </Text>
-      )}
-      <Text style={styles.label}>Tenant typed name (required)</Text>
-      <TextInput style={styles.input} value={tenant} onChangeText={setTenant} accessibilityLabel="Tenant typed name" />
-      <Text style={styles.label}>Landlord or manager typed name</Text>
-      <TextInput
-        style={styles.input}
-        value={landlord}
-        onChangeText={setLandlord}
-        accessibilityLabel="Landlord or manager typed name"
-      />
-      <Pressable
-        style={[styles.button, disabled && styles.disabled]}
-        disabled={disabled}
-        accessibilityRole="button"
-        accessibilityLabel="Export PDF"
-        accessibilityState={{ disabled, busy }}
-        onPress={submit}
-      >
-        {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Export PDF</Text>}
-      </Pressable>
-      {busy && <Text style={styles.status}>Building PDF...</Text>}
-      <Pressable
-        style={[styles.secondary, zipBusy && styles.disabled]}
-        disabled={zipBusy}
-        accessibilityRole="button"
-        accessibilityLabel="Share full-resolution photos (.zip)"
-        accessibilityState={{ disabled: zipBusy, busy: zipBusy }}
-        onPress={shareZip}
-      >
-        {zipBusy ? (
-          <ActivityIndicator color="#1a73e8" />
-        ) : (
-          <Text style={styles.secondaryText}>Share full-resolution photos (.zip)</Text>
+    <>
+      <Stack.Screen options={{ title: 'Export report', headerLargeTitleStyle: { fontSize: 34, color: c.ink } }} />
+      <Screen>
+        {date != null && (
+          <Text style={[styles.statement, { color: c.ink }]}>
+            I confirm this report reflects the unit&apos;s condition on{' '}
+            {new Date(date).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}.
+          </Text>
         )}
-      </Pressable>
-    </ScrollView>
+        <SectionLabel>Tenant typed name</SectionLabel>
+        <Field signature value={tenant} onChangeText={setTenant} accessibilityLabel="Tenant typed name" placeholder="Required" />
+        <SectionLabel>Landlord or manager typed name</SectionLabel>
+        <Field signature value={landlord} onChangeText={setLandlord} accessibilityLabel="Landlord or manager typed name" placeholder="Optional" />
+        <Button label={busy ? 'Building PDF' : 'Export PDF'} a11y="Export PDF" onPress={submit} disabled={disabled} busy={busy} style={styles.button} />
+        <Button label="Share full-resolution photos (.zip)" variant="secondary" onPress={shareZip} busy={zipBusy} style={styles.zip} />
+      </Screen>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, backgroundColor: '#fff', flexGrow: 1 },
-  statement: { fontSize: 16, marginBottom: 8 },
-  label: { marginTop: 12, marginBottom: 4, fontSize: 15, fontWeight: '500' },
-  input: { minHeight: 44, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 12, fontSize: 16 },
-  button: { minHeight: 48, borderRadius: 8, backgroundColor: '#1a73e8', alignItems: 'center', justifyContent: 'center', marginTop: 24 },
-  disabled: { opacity: 0.5 },
-  buttonText: { color: '#fff', fontSize: 17, fontWeight: '600' },
-  secondary: { minHeight: 48, borderRadius: 8, borderWidth: 1, borderColor: '#1a73e8', alignItems: 'center', justifyContent: 'center', marginTop: 16 },
-  secondaryText: { color: '#1a73e8', fontSize: 17, fontWeight: '600' },
-  status: { marginTop: 8, textAlign: 'center', color: '#666' },
+  statement: { fontFamily: serifItalic, fontSize: 22, lineHeight: 29, marginBottom: 8, marginHorizontal: 4 },
+  button: { marginTop: 40 },
+  zip: { marginTop: 10 },
 });

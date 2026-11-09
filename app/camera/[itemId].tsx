@@ -3,10 +3,13 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Button } from '@/components/Button';
 import { getDb } from '@/db/client';
 import { capturePhoto } from '@/lib/photos';
+import { useTheme } from '@/theme';
 
 export default function CameraScreen() {
+  const { c } = useTheme();
   const { itemId } = useLocalSearchParams<{ itemId: string }>();
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
@@ -28,24 +31,17 @@ export default function CameraScreen() {
 
   let body;
   if (!permission) {
-    body = <ActivityIndicator style={styles.center} />;
+    body = <ActivityIndicator style={[styles.center, { backgroundColor: c.plaster }]} />;
   } else if (!permission.granted) {
     const canAsk = permission.canAskAgain;
     body = (
-      <View style={[styles.center, styles.message]}>
-        <Text style={styles.text}>
+      <View style={[styles.center, styles.message, { backgroundColor: c.plaster }]}>
+        <Text style={[styles.text, { color: c.ink }]}>
           Unscratched needs the camera to photograph your rental&apos;s condition. Photos are taken in the app so
           they can be trusted.
           {canAsk ? '' : ' Camera access is turned off. Turn it on in Settings.'}
         </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={canAsk ? 'Allow camera' : 'Open Settings'}
-          onPress={canAsk ? requestPermission : () => Linking.openSettings()}
-          style={styles.button}
-        >
-          <Text style={styles.buttonText}>{canAsk ? 'Allow camera' : 'Open Settings'}</Text>
-        </Pressable>
+        <Button label={canAsk ? 'Allow camera' : 'Open Settings'} onPress={canAsk ? requestPermission : () => Linking.openSettings()} />
       </View>
     );
   } else {
@@ -68,24 +64,16 @@ export default function CameraScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Take photo' }} />
+      <Stack.Screen options={{ title: 'Take photo', headerLargeTitle: false, headerTransparent: true, headerTintColor: '#fff' }} />
       {body}
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', backgroundColor: '#fff' },
-  message: { padding: 16, gap: 16 },
-  text: { fontSize: 16, color: '#222', textAlign: 'center' },
-  button: {
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
-    backgroundColor: '#1f6feb',
-  },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  center: { flex: 1, justifyContent: 'center' },
+  message: { padding: 24, gap: 24 },
+  text: { fontSize: 16, lineHeight: 23, textAlign: 'center' },
   camera: { flex: 1, backgroundColor: '#000', justifyContent: 'flex-end', alignItems: 'center' },
   shutter: {
     width: 80,
