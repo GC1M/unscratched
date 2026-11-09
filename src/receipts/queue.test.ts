@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 
 import type { Receipt } from '@/db/types';
 
-import { BATCH_SIZE, pendingHashes, syncReceipts } from './queue';
+import { BATCH_SIZE, pendingHashes, syncReceipts, TIMEOUT_MS } from './queue';
 
 const mockCreateHash = createHash;
 jest.mock('expo-crypto', () => ({
@@ -181,4 +181,23 @@ test('a hash finished during a sync is picked up by the follow-up sync', async (
   await Promise.all([first, syncReceipts(db)]);
   expect(sent(fetch)).toContain(hex(4));
   expect(new Set(sent(fetch)).size).toBe(sent(fetch).length);
+});
+
+test('a stalled request is aborted after the timeout and the hashes stay pending', async () => {
+  jest.useFakeTimers();
+  try {
+    useFetch(
+      jest.fn(
+        (_url: string, init: { signal: AbortSignal }) =>
+          new Promise((_resolve, reject) => init.signal.addEventListener('abort', () => reject(new Error('aborted')))),
+      ),
+    );
+    const done = syncReceipts(db);
+    await jest.advanceTimersByTimeAsync(TIMEOUT_MS);
+    await done;
+    expect(mockStore.size).toBe(0);
+    expect(await pendingHashes(db)).toHaveLength(5);
+  } finally {
+    jest.useRealTimers();
+  }
 });

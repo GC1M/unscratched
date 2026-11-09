@@ -7,6 +7,7 @@ import { receiptsConfig } from './config';
 import { manifestHash } from './manifest';
 
 export const BATCH_SIZE = 500;
+export const TIMEOUT_MS = 10_000;
 const HEX64 = /^[0-9a-f]{64}$/;
 
 /** Hashes of finished inspections (photos plus each inspection's manifest) that have no stored receipt. */
@@ -38,11 +39,16 @@ async function run(db: SQLiteDatabase): Promise<void> {
   for (let i = 0; i < pending.length; i += BATCH_SIZE) {
     const hashes = pending.slice(i, i + BATCH_SIZE);
     // Privacy: the body is only SHA-256 hex strings. Never add anything else here.
+    // Exports wait for a sync, so a stalled network must not hold them up for the OS default timeout.
+    // (React Native's AbortSignal polyfill has no AbortSignal.timeout.)
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), TIMEOUT_MS);
     const res = await fetch(`${config.url}/functions/v1/issue-receipts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: config.anonKey, Authorization: `Bearer ${config.anonKey}` },
       body: JSON.stringify({ hashes }),
-    });
+      signal: abort.signal,
+    }).finally(() => clearTimeout(timer));
     if (!res.ok) return;
     await saveReceipts(db, parseReceipts(await res.json(), new Set(hashes)));
   }
