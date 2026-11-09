@@ -114,6 +114,10 @@ export function listRooms(db: SQLiteDatabase, inspectionId: number): Promise<Roo
   return db.getAllAsync<Room>('SELECT * FROM room WHERE inspection_id = ? ORDER BY sort', inspectionId);
 }
 
+export function getRoom(db: SQLiteDatabase, roomId: number): Promise<Room | null> {
+  return db.getFirstAsync<Room>('SELECT * FROM room WHERE id = ?', roomId);
+}
+
 export async function renameRoom(db: SQLiteDatabase, roomId: number, name: string): Promise<void> {
   await assertEditable(db, 'room', roomId);
   await db.runAsync('UPDATE room SET name = ? WHERE id = ?', name, roomId);
@@ -221,6 +225,15 @@ export function listPhotos(db: SQLiteDatabase, itemId: number): Promise<Photo[]>
   return db.getAllAsync<Photo>('SELECT * FROM photo WHERE item_id = ? ORDER BY captured_at, id', itemId);
 }
 
+/** Photo count per item of a room, keyed by item id. Items without photos are absent. */
+export async function countPhotosByItem(db: SQLiteDatabase, roomId: number): Promise<Map<number, number>> {
+  const rows = await db.getAllAsync<{ item_id: number; n: number }>(
+    'SELECT p.item_id, COUNT(*) AS n FROM photo p JOIN item it ON it.id = p.item_id WHERE it.room_id = ? GROUP BY p.item_id',
+    roomId,
+  );
+  return new Map(rows.map((r) => [r.item_id, r.n]));
+}
+
 /** All photos of an inspection in one query, ordered by room, item, then capture time. */
 export function listInspectionPhotos(db: SQLiteDatabase, inspectionId: number): Promise<Photo[]> {
   return db.getAllAsync<Photo>(
@@ -228,4 +241,15 @@ export function listInspectionPhotos(db: SQLiteDatabase, inspectionId: number): 
      WHERE r.inspection_id = ? ORDER BY r.sort, it.sort, p.captured_at, p.id`,
     inspectionId,
   );
+}
+
+// Settings
+
+export async function getSetting(db: SQLiteDatabase, key: string): Promise<string | null> {
+  const row = await db.getFirstAsync<{ value: string }>('SELECT value FROM setting WHERE key = ?', key);
+  return row?.value ?? null;
+}
+
+export async function setSetting(db: SQLiteDatabase, key: string, value: string): Promise<void> {
+  await db.runAsync('INSERT INTO setting (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', key, value);
 }

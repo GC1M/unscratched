@@ -23,11 +23,14 @@
     "testTimeout": 15000
   },
   "dependencies": {
+    "@expo-google-fonts/newsreader": "^0.4.1",
     "expo": "~58.0.19",
     "expo-camera": "~58.0.14",
     "expo-constants": "~58.0.13",
     "expo-crypto": "~58.0.7",
     "expo-file-system": "~58.0.13",
+    "expo-font": "~58.0.11",
+    "expo-glass-effect": "~58.0.5",
     "expo-image-manipulator": "~58.0.16",
     "expo-linking": "~58.0.14",
     "expo-print": "~58.0.8",

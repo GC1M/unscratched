@@ -1,16 +1,26 @@
 import { Stack, router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Button } from '@/components/Button';
+import { Group, Row, RowMeta, RowTitle, SectionLabel } from '@/components/Group';
+import { ProgressBar } from '@/components/ProgressBar';
+import { Floating, Screen } from '@/components/Screen';
 import { getDb } from '@/db/client';
 import { listInspectionItems, listInspections, listRooms } from '@/db/repo';
 import type { Inspection } from '@/db/types';
+import { kindLabel, shortDate } from '@/lib/format';
+import { nextRoom } from '@/lib/next';
 import { progress, type Progress } from '@/lib/progress';
+import { radius, serif, useTheme } from '@/theme';
 
-type Row = Inspection & { progress: Progress | null };
+type HomeRow = Inspection & { progress: Progress | null; next: string | null };
+
+const address = (i: Inspection) => `${i.address}${i.unit ? `, ${i.unit}` : ''}`;
 
 export default function Home() {
-  const [inspections, setInspections] = useState<Row[]>([]);
+  const { c } = useTheme();
+  const [inspections, setInspections] = useState<HomeRow[] | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -19,13 +29,11 @@ export default function Home() {
         const db = await getDb();
         // ponytail: two queries per unfinished inspection; fine for a renter's handful of inspections.
         const rows = await Promise.all(
-          (await listInspections(db)).map(async (i) => ({
-            ...i,
-            progress:
-              i.finished_at == null
-                ? progress(await listRooms(db, i.id), await listInspectionItems(db, i.id))
-                : null,
-          })),
+          (await listInspections(db)).map(async (i) => {
+            if (i.finished_at != null) return { ...i, progress: null, next: null };
+            const [rooms, items] = await Promise.all([listRooms(db, i.id), listInspectionItems(db, i.id)]);
+            return { ...i, progress: progress(rooms, items), next: nextRoom(rooms, items)?.name ?? null };
+          }),
         );
         if (active) setInspections(rows);
       })();
@@ -35,63 +43,121 @@ export default function Home() {
     }, []),
   );
 
+  if (!inspections) return <Screen>{null}</Screen>;
+  const [hero, ...rest] = inspections.filter((i) => i.finished_at == null);
+  const finished = inspections.filter((i) => i.finished_at != null);
+
   return (
-    <View style={styles.container}>
-      <Stack.Screen options={{ title: 'Unscratched' }} />
-      <Pressable
-        style={styles.button}
-        accessibilityRole="button"
-        accessibilityLabel="New move-in inspection"
-        onPress={() => router.push('/inspection/new')}
-      >
-        <Text style={styles.buttonText}>New move-in inspection</Text>
-      </Pressable>
-      <FlatList
-        data={inspections}
-        keyExtractor={(i) => String(i.id)}
-        ListEmptyComponent={<Text style={styles.empty}>No inspections yet.</Text>}
-        renderItem={({ item }) => {
-          const kind = item.kind === 'move_in' ? 'Move-in' : 'Move-out';
-          const started = new Date(item.started_at).toLocaleDateString();
-          return (
-            <Pressable
-              style={styles.row}
-              accessibilityRole="button"
-              accessibilityLabel={`${item.address}${item.unit ? `, unit ${item.unit}` : ''}, ${kind}`}
-              onPress={() => router.push(`/inspection/${item.id}`)}
-            >
-              <View style={styles.rowMain}>
-                <Text style={styles.address}>
-                  {item.address}
-                  {item.unit ? `, ${item.unit}` : ''}
-                </Text>
-                <Text style={styles.meta}>
-                  {kind} · {started}
-                </Text>
-              </View>
-              {item.progress ? (
-                <Text style={styles.meta}>
-                  {item.progress.roomsDone}/{item.progress.roomsTotal} rooms
-                </Text>
-              ) : (
-                <Text style={styles.badge}>Finished</Text>
-              )}
-            </Pressable>
-          );
-        }}
-      />
-    </View>
+    <>
+      <Stack.Screen>
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Button icon="plus" accessibilityLabel="New inspection" onPress={() => router.push('/inspection/new')} />
+          <Stack.Toolbar.Button icon="gearshape" accessibilityLabel="Settings" onPress={() => router.push('/settings')} />
+        </Stack.Toolbar>
+      </Stack.Screen>
+      <Screen>
+        {hero ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Continue ${address(hero)}`}
+            onPress={() => router.push(`/inspection/${hero.id}`)}
+            style={({ pressed }) => [styles.hero, { backgroundColor: c.paper }, pressed && { opacity: 0.85 }]}
+          >
+            <Text style={[styles.heroAddress, { color: c.ink }]}>{address(hero)}</Text>
+            <Text style={[styles.heroMeta, { color: c.ink60 }]}>
+              {kindLabel(hero.kind)}, started {shortDate(hero.started_at)}
+            </Text>
+            {hero.progress && (
+              <ProgressBar
+                done={hero.progress.itemsDone}
+                total={hero.progress.itemsTotal}
+                note={`${hero.progress.roomsDone} of ${hero.progress.roomsTotal} rooms`}
+              />
+            )}
+          </Pressable>
+        ) : (
+          <View style={styles.empty}>
+            <Text style={[styles.emptyTitle, { color: c.ink }]}>No inspections yet</Text>
+            <Text style={[styles.emptyBody, { color: c.ink60 }]}>
+              Walk each room before you unpack. About twenty minutes, and the report protects your deposit.
+            </Text>
+          </View>
+        )}
+        {rest.length > 0 && (
+          <>
+            <SectionLabel>Also in progress</SectionLabel>
+            <Group>
+              {rest.map((i, idx) => (
+                <Row
+                  key={i.id}
+                  first={idx === 0}
+                  onPress={() => router.push(`/inspection/${i.id}`)}
+                  a11y={`${address(i)}, ${kindLabel(i.kind)}`}
+                  trailing={
+                    <Text style={[styles.count, { color: c.ink60 }]}>
+                      {i.progress?.roomsDone} of {i.progress?.roomsTotal} rooms
+                    </Text>
+                  }
+                >
+                  <RowTitle serif>{address(i)}</RowTitle>
+                  <RowMeta>
+                    {kindLabel(i.kind)}, started {shortDate(i.started_at)}
+                  </RowMeta>
+                </Row>
+              ))}
+            </Group>
+          </>
+        )}
+        {finished.length > 0 && (
+          <>
+            <SectionLabel>Finished</SectionLabel>
+            <Group>
+              {finished.map((i, idx) => (
+                <Row
+                  key={i.id}
+                  first={idx === 0}
+                  onPress={() => router.push(`/inspection/${i.id}`)}
+                  a11y={`${address(i)}, ${kindLabel(i.kind)}, finished`}
+                  trailing={
+                    <View style={[styles.tag, { backgroundColor: c.plaster }]}>
+                      <Text style={[styles.tagText, { color: c.ink60 }]}>Report ready</Text>
+                    </View>
+                  }
+                >
+                  <RowTitle serif>{address(i)}</RowTitle>
+                  <RowMeta>
+                    {kindLabel(i.kind)}, finished {shortDate(i.finished_at ?? 0)}
+                  </RowMeta>
+                </Row>
+              ))}
+            </Group>
+          </>
+        )}
+      </Screen>
+      <Floating>
+        {hero ? (
+          <Button
+            label="Continue inspection"
+            trailing={hero.next ? `${hero.next} next` : undefined}
+            a11y={`Continue inspection, ${address(hero)}`}
+            onPress={() => router.push(`/inspection/${hero.id}`)}
+          />
+        ) : (
+          <Button label="New move-in inspection" onPress={() => router.push('/inspection/new')} />
+        )}
+      </Floating>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
-  button: { minHeight: 48, borderRadius: 8, backgroundColor: '#1a73e8', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  buttonText: { color: '#fff', fontSize: 17, fontWeight: '600' },
-  empty: { textAlign: 'center', color: '#666', marginTop: 24 },
-  row: { minHeight: 56, flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: '#ccc' },
-  rowMain: { flex: 1 },
-  address: { fontSize: 16, fontWeight: '500' },
-  meta: { marginTop: 2, color: '#666' },
-  badge: { color: '#137333', fontWeight: '600' },
+  hero: { borderRadius: radius.panel, padding: 20, gap: 4 },
+  heroAddress: { fontFamily: serif, fontSize: 26, lineHeight: 30 },
+  heroMeta: { fontSize: 15, marginBottom: 12 },
+  empty: { paddingTop: 48, paddingHorizontal: 4, gap: 8 },
+  emptyTitle: { fontFamily: serif, fontSize: 26 },
+  emptyBody: { fontSize: 15, lineHeight: 22 },
+  count: { fontSize: 15, fontVariant: ['tabular-nums'] },
+  tag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  tagText: { fontSize: 13, fontWeight: '600' },
 });

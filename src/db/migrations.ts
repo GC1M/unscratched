@@ -43,6 +43,12 @@ export const migrations: string[] = [
   );
   CREATE INDEX photo_item ON photo(item_id);
   `,
+  `
+  CREATE TABLE setting (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase): Promise<void> {

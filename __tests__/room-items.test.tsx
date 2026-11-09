@@ -4,20 +4,15 @@ import { Alert } from 'react-native';
 
 import * as repo from '@/db/repo';
 import type { Item } from '@/db/types';
+import { shortDate } from '@/lib/format';
 
 import RoomItems from '../app/inspection/[id]/room/[roomId]';
 
 jest.mock('@/db/client', () => ({ getDb: jest.fn(async () => ({})) }));
 jest.mock('@/db/repo');
-jest.mock('expo-router', () => {
-  const { useEffect } = jest.requireActual('react');
-  return {
-    Stack: { Screen: () => null },
-    router: { push: jest.fn() },
-    useLocalSearchParams: () => ({ id: '1', roomId: '10' }),
-    useFocusEffect: (cb: () => void) => useEffect(cb, [cb]),
-  };
-});
+jest.mock('expo-router', () =>
+  require('@/test/expoRouter').mockExpoRouter({ useLocalSearchParams: () => ({ id: '1', roomId: '10' }) }),
+);
 
 const r = jest.mocked(repo);
 let items: Item[];
@@ -28,15 +23,23 @@ beforeEach(() => {
     { id: 1, room_id: 10, name: 'Walls', condition: 'damaged', note: null, sort: 0 },
     { id: 2, room_id: 10, name: 'Floor', condition: null, note: null, sort: 1 },
   ];
-  r.listRooms.mockResolvedValue([{ id: 10, inspection_id: 1, name: 'Kitchen', sort: 0 }]);
+  r.getRoom.mockResolvedValue({ id: 10, inspection_id: 1, name: 'Kitchen', sort: 0 });
   r.listItems.mockImplementation(async () => items);
+  r.countPhotosByItem.mockResolvedValue(new Map([[1, 2]]));
 });
 
-test('lists items with condition, and tapping opens the item', async () => {
+test('lists items with condition and photo count, and tapping opens the item', async () => {
   await render(<RoomItems />);
-  expect(await screen.findByText('Damaged')).toBeOnTheScreen();
-  expect(screen.getByText('Not set')).toBeOnTheScreen();
-  await fireEvent.press(screen.getByLabelText('Open Floor'));
+  expect(await screen.findByText('Damaged, 2 photos')).toBeOnTheScreen();
+  expect(screen.getByText('Not checked')).toBeOnTheScreen();
+  expect(screen.getByText('1 of 2 items checked')).toBeOnTheScreen();
+  await fireEvent.press(screen.getByLabelText('Open Floor, Not checked'));
+  expect(router.push).toHaveBeenCalledWith('/item/2');
+});
+
+test('Continue opens the next unchecked item', async () => {
+  await render(<RoomItems />);
+  await fireEvent.press(await screen.findByRole('button', { name: 'Continue with Floor' }));
   expect(router.push).toHaveBeenCalledWith('/item/2');
 });
 
@@ -54,10 +57,12 @@ test('add, rename, and delete items', async () => {
   await render(<RoomItems />);
   await screen.findByText('Walls');
 
-  await fireEvent.changeText(screen.getByLabelText('New item name'), 'Window');
   await fireEvent.press(screen.getByLabelText('Add item'));
+  await fireEvent.changeText(screen.getByLabelText('New item name'), 'Window');
+  await fireEvent.press(screen.getByLabelText('Add'));
   expect(await screen.findByText('Window')).toBeOnTheScreen();
 
+  await fireEvent.press(screen.getByLabelText('Edit items'));
   await fireEvent.press(screen.getByLabelText('Rename Walls'));
   await fireEvent.changeText(screen.getByLabelText('Item name'), 'Paint');
   await fireEvent.press(screen.getByLabelText('Save'));
@@ -68,12 +73,12 @@ test('add, rename, and delete items', async () => {
   expect(screen.queryByText('Floor')).toBeNull();
 });
 
-test('finished inspection hides add, rename, and delete', async () => {
+test('finished inspection hides add, edit, and continue', async () => {
   r.getInspection.mockResolvedValue({ id: 1, finished_at: 5 } as never);
   await render(<RoomItems />);
-  expect(await screen.findByText(`Finished ${new Date(5).toLocaleDateString()}`)).toBeOnTheScreen();
-  for (const label of ['Add item', 'New item name', 'Rename Walls', 'Delete Walls']) {
+  expect(await screen.findByText(`Finished ${shortDate(5)}. Locked so the report can be trusted.`)).toBeOnTheScreen();
+  for (const label of ['Add item', 'Edit items', 'Continue with Floor']) {
     expect(screen.queryByLabelText(label)).toBeNull();
   }
-  expect(screen.getByLabelText('Open Walls')).toBeOnTheScreen();
+  expect(screen.getByLabelText('Open Walls, Damaged, 2 photos')).toBeOnTheScreen();
 });

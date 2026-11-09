@@ -1,28 +1,27 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { router } from 'expo-router';
 
 import ItemScreen from '../app/item/[id]';
-import { getFinishedAt, getItem, listPhotos, setCondition, setNote } from '@/db/repo';
+import { getFinishedAt, getItem, getRoom, listItems, listPhotos, setCondition, setNote } from '@/db/repo';
 import type { Item, Photo } from '@/db/types';
+import { shortDate } from '@/lib/format';
 
 const db = {};
-const mockPush = jest.fn();
 
 jest.mock('@/db/client', () => ({ getDb: jest.fn(() => Promise.resolve(db)) }));
 jest.mock('@/db/repo', () => ({
   getFinishedAt: jest.fn(),
   getItem: jest.fn(),
+  getRoom: jest.fn(),
+  listItems: jest.fn(),
   listPhotos: jest.fn(),
   setCondition: jest.fn(() => Promise.resolve()),
   setNote: jest.fn(() => Promise.resolve()),
 }));
-jest.mock('expo-router', () => ({
-  Stack: { Screen: () => null },
-  useLocalSearchParams: () => ({ id: '7' }),
-  useRouter: () => ({ push: mockPush }),
-  useFocusEffect: (cb: () => void | (() => void)) => require('react').useEffect(cb, [cb]),
-}));
+jest.mock('expo-router', () => require('@/test/expoRouter').mockExpoRouter({ useLocalSearchParams: () => ({ id: '7' }) }));
 
 const item: Item = { id: 7, room_id: 1, name: 'Walls', condition: null, note: null, sort: 0 };
+const floor: Item = { id: 8, room_id: 1, name: 'Floor', condition: null, note: null, sort: 1 };
 const photo = (id: number): Photo => ({
   id,
   item_id: 7,
@@ -37,11 +36,13 @@ const photo = (id: number): Photo => ({
 beforeEach(() => {
   jest.clearAllMocks();
   jest.mocked(getItem).mockResolvedValue(item);
+  jest.mocked(getRoom).mockResolvedValue({ id: 1, inspection_id: 1, name: 'Kitchen', sort: 0 });
+  jest.mocked(listItems).mockResolvedValue([item, floor]);
   jest.mocked(listPhotos).mockResolvedValue([]);
   jest.mocked(getFinishedAt).mockResolvedValue(null);
 });
 
-test('tapping a chip selects it and saves; tapping again clears it', async () => {
+test('tapping a condition selects it and saves; tapping again clears it', async () => {
   await render(<ItemScreen />);
   const fair = await screen.findByRole('radio', { name: 'Fair' });
   expect(fair).not.toBeSelected();
@@ -53,6 +54,20 @@ test('tapping a chip selects it and saves; tapping again clears it', async () =>
   await fireEvent.press(screen.getByRole('radio', { name: 'Fair' }));
   expect(screen.getByRole('radio', { name: 'Fair' })).not.toBeSelected();
   expect(setCondition).toHaveBeenLastCalledWith(db, 7, null);
+});
+
+test('shows position in the room and Next goes to the next unchecked item', async () => {
+  await render(<ItemScreen />);
+  expect(await screen.findByText('Kitchen, item 1 of 2')).toBeOnTheScreen();
+  await fireEvent.press(screen.getByRole('button', { name: 'Next: Floor' }));
+  expect(router.replace).toHaveBeenCalledWith('/item/8');
+});
+
+test('when nothing is left, Done goes back to the room', async () => {
+  jest.mocked(listItems).mockResolvedValue([item, { ...floor, condition: 'good' }]);
+  await render(<ItemScreen />);
+  await fireEvent.press(await screen.findByRole('button', { name: 'Done with Kitchen' }));
+  expect(router.back).toHaveBeenCalled();
 });
 
 test('note is saved on blur', async () => {
@@ -77,15 +92,15 @@ test('renders photos and Add photo navigates to the camera', async () => {
   expect(await screen.findByLabelText('Photo 1')).toBeOnTheScreen();
   expect(screen.getByLabelText('Photo 2')).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Add photo' }));
-  expect(mockPush).toHaveBeenCalledWith('/camera/7');
+  expect(router.push).toHaveBeenCalledWith('/camera/7');
 });
 
-test('finished inspection: chips read-only, note not editable, Add photo hidden, banner shown', async () => {
+test('finished inspection: conditions read-only, note not editable, Add photo and Next hidden, banner shown', async () => {
   jest.mocked(getFinishedAt).mockResolvedValue(5);
   jest.mocked(getItem).mockResolvedValue({ ...item, condition: 'good', note: 'Clean' });
   jest.mocked(listPhotos).mockResolvedValue([photo(1)]);
   await render(<ItemScreen />);
-  expect(await screen.findByText(`Finished ${new Date(5).toLocaleDateString()}`)).toBeOnTheScreen();
+  expect(await screen.findByText(`Finished ${shortDate(5)}. Locked so the report can be trusted.`)).toBeOnTheScreen();
   expect(getFinishedAt).toHaveBeenCalledWith(db, 'item', 7);
 
   const fair = screen.getByRole('radio', { name: 'Fair' });
@@ -101,4 +116,5 @@ test('finished inspection: chips read-only, note not editable, Add photo hidden,
 
   expect(screen.getByLabelText('Photo 1')).toBeOnTheScreen();
   expect(screen.queryByRole('button', { name: 'Add photo' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Next: Floor' })).toBeNull();
 });

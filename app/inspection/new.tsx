@@ -1,13 +1,19 @@
 import { Stack, router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
+import { Button } from '@/components/Button';
+import { Field } from '@/components/Field';
+import { SectionLabel } from '@/components/Group';
+import { Screen } from '@/components/Screen';
 import { getDb } from '@/db/client';
 import { createInspectionFromTemplate } from '@/db/repo';
+import { useTheme } from '@/theme';
 
 const orNull = (s: string) => s.trim() || null;
 
 export default function NewInspection() {
+  const { c } = useTheme();
   const [address, setAddress] = useState('');
   const [unit, setUnit] = useState('');
   const [tenant, setTenant] = useState('');
@@ -37,42 +43,25 @@ export default function NewInspection() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'New move-in inspection' }} />
-      <Text style={styles.label}>Address (required)</Text>
-      <TextInput style={styles.input} value={address} onChangeText={(t) => { setAddress(t); setError(null); }} accessibilityLabel="Address" />
-      {error && <Text style={styles.error}>{error}</Text>}
-      <Text style={styles.label}>Unit</Text>
-      <TextInput style={styles.input} value={unit} onChangeText={setUnit} accessibilityLabel="Unit" />
-      <Text style={styles.label}>Tenant name</Text>
-      <TextInput style={styles.input} value={tenant} onChangeText={setTenant} accessibilityLabel="Tenant name" />
-      <Text style={styles.label}>Landlord or manager name</Text>
-      <TextInput
-        style={styles.input}
-        value={landlord}
-        onChangeText={setLandlord}
-        accessibilityLabel="Landlord or manager name"
-      />
-      <Pressable
-        style={[styles.button, saving && styles.disabled]}
-        disabled={saving}
-        accessibilityRole="button"
-        accessibilityLabel="Start inspection"
-        accessibilityState={{ disabled: saving }}
-        onPress={submit}
-      >
-        <Text style={styles.buttonText}>{saving ? 'Saving...' : 'Start inspection'}</Text>
-      </Pressable>
-    </ScrollView>
+    <>
+      <Stack.Screen options={{ title: 'New inspection', headerLargeTitleStyle: { fontSize: 34, color: c.ink } }} />
+      <Screen>
+        <SectionLabel>Address</SectionLabel>
+        <Field value={address} onChangeText={(t) => { setAddress(t); setError(null); }} accessibilityLabel="Address" placeholder="12 Elm Street" />
+        {error && <Text style={[styles.error, { color: c.damaged }]}>{error}</Text>}
+        <SectionLabel>Unit</SectionLabel>
+        <Field value={unit} onChangeText={setUnit} accessibilityLabel="Unit" placeholder="Optional" />
+        <SectionLabel>Tenant name</SectionLabel>
+        <Field value={tenant} onChangeText={setTenant} accessibilityLabel="Tenant name" placeholder="Optional" />
+        <SectionLabel>Landlord or manager name</SectionLabel>
+        <Field value={landlord} onChangeText={setLandlord} accessibilityLabel="Landlord or manager name" placeholder="Optional" />
+        <Button label="Start inspection" onPress={submit} busy={saving} style={styles.button} />
+      </Screen>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, backgroundColor: '#fff', flexGrow: 1 },
-  label: { marginTop: 12, marginBottom: 4, fontSize: 15, fontWeight: '500' },
-  input: { minHeight: 44, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 12, fontSize: 16 },
-  error: { marginTop: 4, color: '#c5221f' },
-  button: { minHeight: 48, borderRadius: 8, backgroundColor: '#1a73e8', alignItems: 'center', justifyContent: 'center', marginTop: 24 },
-  disabled: { opacity: 0.5 },
-  buttonText: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  error: { marginTop: 6, marginLeft: 4, fontSize: 13 },
+  button: { marginTop: 32 },
 });
