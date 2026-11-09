@@ -23,7 +23,7 @@ export function InlineInput({ value, onChangeText, onSubmit, onCancel, placehold
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={c.ink30}
+        placeholderTextColor={c.ink60}
         accessibilityLabel={a11y}
         onSubmitEditing={onSubmit}
         autoFocus
@@ -35,6 +35,6 @@ export function InlineInput({ value, onChangeText, onSubmit, onCancel, placehold
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', minHeight: 58, paddingLeft: 16, paddingRight: 4 },
-  input: { flex: 1, fontSize: 17, borderBottomWidth: 1, paddingVertical: 8 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', minHeight: 58, paddingLeft: 16, paddingRight: 4 },
+  input: { flexGrow: 1, flexBasis: 120, fontSize: 17, borderBottomWidth: 1, paddingVertical: 8 },
 });

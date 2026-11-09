@@ -22,7 +22,9 @@ test('first launch shows onboarding; finishing it saves the flag and lands on ho
   jest.mocked(getSetting).mockResolvedValue(null);
   await renderRouter(routes);
 
-  expect(await screen.findByText('26% of renters lose a deposit')).toBeOnTheScreen();
+  expect(await screen.findByRole('header', { name: '26% of renters lose a deposit' })).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Skip' })).toBeOnTheScreen();
+  expect(screen.getByLabelText('Page 1 of 3')).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Next' }));
   expect(screen.getByText('Walk through, room by room')).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Next' }));

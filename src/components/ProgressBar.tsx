@@ -28,7 +28,7 @@ export function ProgressBar({ done, total, note }: { done: number; total: number
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  track: { flex: 1, height: 3, borderRadius: 2, overflow: 'hidden' },
+  track: { flex: 1, minWidth: 48, height: 3, borderRadius: 2, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 2 },
-  text: { fontSize: 13, fontVariant: ['tabular-nums'] },
+  text: { flexShrink: 1, fontSize: 13, fontVariant: ['tabular-nums'] },
 });

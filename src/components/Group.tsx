@@ -12,7 +12,11 @@ export function Group({ children, style }: { children: ReactNode; style?: StyleP
 /** Small secondary heading above a Group. */
 export function SectionLabel({ children }: { children: string }) {
   const { c } = useTheme();
-  return <Text style={[styles.section, { color: c.ink60 }]}>{children}</Text>;
+  return (
+    <Text accessibilityRole="header" style={[styles.section, { color: c.ink60 }]}>
+      {children}
+    </Text>
+  );
 }
 
 interface RowProps {

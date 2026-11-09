@@ -7,7 +7,7 @@ export function Field({ signature, style, ...props }: TextInputProps & { signatu
   const { c } = useTheme();
   return (
     <TextInput
-      placeholderTextColor={c.ink30}
+      placeholderTextColor={c.ink60}
       {...props}
       style={[
         signature ? [styles.signature, { borderColor: c.ink60 }] : [styles.field, { backgroundColor: c.paper }],

@@ -154,7 +154,7 @@ export default function RoomItems() {
                       hitSlop={10}
                       style={[styles.minus, { backgroundColor: c.damaged }]}
                     >
-                      <Text style={[styles.minusText, { color: c.onInk }]}>−</Text>
+                      <Text maxFontSizeMultiplier={1} style={[styles.minusText, { color: c.onInk }]}>−</Text>
                     </Pressable>
                   ) : (
                     <ConditionMark condition={item.condition} />
@@ -171,7 +171,7 @@ export default function RoomItems() {
             (adding != null ? (
               <InlineInput value={adding} onChangeText={setAdding} onSubmit={add} onCancel={() => setAdding(null)} placeholder="Item name" a11y="New item name" submitLabel="Add" />
             ) : (
-              <Row first={items.length === 0} onPress={() => setAdding('')} a11y="Add item" trailing={<View />} leading={<View style={[styles.plus, { borderColor: c.ink30 }]}><Text style={[styles.plusText, { color: c.ink60 }]}>+</Text></View>}>
+              <Row first={items.length === 0} onPress={() => setAdding('')} a11y="Add item" trailing={<View />} leading={<View style={[styles.plus, { borderColor: c.ink30 }]}><Text maxFontSizeMultiplier={1} style={[styles.plusText, { color: c.ink60 }]}>+</Text></View>}>
                 <Text style={[styles.addText, { color: c.ink60 }]}>Add item</Text>
               </Row>
             ))}
