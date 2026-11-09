@@ -1,8 +1,14 @@
 import { Newsreader_400Regular, Newsreader_400Regular_Italic, useFonts } from '@expo-google-fonts/newsreader';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
+import { AppState } from 'react-native';
 
+import { getDb } from '@/db/client';
+import { syncReceipts } from '@/receipts/queue';
 import { serif, ThemeProvider, useTheme } from '@/theme';
+
+const sync = () => getDb().then(syncReceipts).catch(() => {});
 
 function Navigator() {
   const { c, scheme } = useTheme();
@@ -28,8 +34,16 @@ function Navigator() {
 }
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({ Newsreader_400Regular, Newsreader_400Regular_Italic });
-  if (!loaded && !error) return null;
+  const [fontsLoaded, fontError] = useFonts({ Newsreader_400Regular, Newsreader_400Regular_Italic });
+  // Retry pending receipts on start and whenever the app returns to the foreground.
+  useEffect(() => {
+    sync();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') sync();
+    });
+    return () => sub.remove();
+  }, []);
+  if (!fontsLoaded && !fontError) return null;
   return (
     <ThemeProvider>
       <Navigator />

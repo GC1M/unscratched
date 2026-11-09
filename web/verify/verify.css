@@ -1,0 +1,67 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+}
+body {
+  margin: 0;
+  padding: 16px;
+}
+main {
+  max-width: 36rem;
+  margin: 0 auto;
+}
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.row {
+  display: flex;
+  gap: 8px;
+}
+input[type='text'] {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-family: ui-monospace, monospace;
+  padding: 8px;
+}
+button,
+input[type='file'] {
+  font: inherit;
+  padding: 8px 12px;
+}
+.hint {
+  font-size: 0.9em;
+  opacity: 0.8;
+}
+.drop {
+  margin-top: 24px;
+  padding: 16px;
+  border: 2px dashed currentColor;
+  border-radius: 8px;
+}
+.drop.over {
+  border-style: solid;
+}
+#result {
+  font-weight: 600;
+  margin-top: 24px;
+}
+#result[data-status='found'] {
+  color: #1a7f37;
+}
+#result[data-status='notfound'],
+#result[data-status='error'] {
+  color: #cf222e;
+}
+@media (prefers-color-scheme: dark) {
+  #result[data-status='found'] {
+    color: #3fb950;
+  }
+  #result[data-status='notfound'],
+  #result[data-status='error'] {
+    color: #ff7b72;
+  }
+}

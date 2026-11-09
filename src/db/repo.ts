@@ -2,7 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { expandTemplate } from '../templates/rooms';
 
-import type { Condition, Inspection, InspectionKind, Item, Photo, Room } from './types';
+import type { Condition, Inspection, InspectionKind, Item, Photo, Receipt, Room } from './types';
 
 // Lock: a finished inspection is read-only.
 
@@ -284,4 +284,34 @@ export async function getSetting(db: SQLiteDatabase, key: string): Promise<strin
 
 export async function setSetting(db: SQLiteDatabase, key: string, value: string): Promise<void> {
   await db.runAsync('INSERT INTO setting (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', key, value);
+}
+
+// Receipts
+
+/** Photo hashes of every finished inspection, with the owning inspection id. */
+export function listFinishedPhotoHashes(db: SQLiteDatabase): Promise<{ inspection_id: number; sha256: string }[]> {
+  return db.getAllAsync(
+    `SELECT r.inspection_id, p.sha256 FROM photo p JOIN item it ON it.id = p.item_id JOIN room r ON r.id = it.room_id
+     JOIN inspection i ON i.id = r.inspection_id WHERE i.finished_at IS NOT NULL`,
+  );
+}
+
+/** Every stored receipt as sha256 -> server_time (ms). */
+export async function listReceipts(db: SQLiteDatabase): Promise<Record<string, number>> {
+  const rows = await db.getAllAsync<Receipt>('SELECT * FROM receipt');
+  return Object.fromEntries(rows.map((r) => [r.sha256, r.server_time]));
+}
+
+/** Stores receipts; a hash that already has one keeps its original. */
+export async function saveReceipts(db: SQLiteDatabase, receipts: Receipt[]): Promise<void> {
+  await db.withTransactionAsync(async () => {
+    for (const r of receipts) {
+      await db.runAsync(
+        'INSERT OR IGNORE INTO receipt (sha256, receipt_id, server_time) VALUES (?, ?, ?)',
+        r.sha256,
+        r.receipt_id,
+        r.server_time,
+      );
+    }
+  });
 }

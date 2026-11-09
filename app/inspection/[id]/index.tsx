@@ -25,6 +25,7 @@ import type { Inspection, Room } from '@/db/types';
 import { kindLabel, shortDate } from '@/lib/format';
 import { nextRoom } from '@/lib/next';
 import { progress, type Progress } from '@/lib/progress';
+import { syncReceipts } from '@/receipts/queue';
 import { exportComparison } from '@/report/exportComparison';
 import { useTheme } from '@/theme';
 
@@ -104,7 +105,14 @@ export default function RoomList() {
       'Conditions, notes, rooms and photos lock so the report can be trusted. You can still export it any time.',
       [
         { text: 'Not yet', style: 'cancel' },
-        { text: 'Finish and lock', onPress: () => run((db) => finishInspection(db, inspectionId)) },
+        {
+          text: 'Finish and lock',
+          onPress: () =>
+            run(async (db) => {
+              await finishInspection(db, inspectionId);
+              void syncReceipts(db); // fire and forget: offline just leaves the receipts pending
+            }),
+        },
       ],
     );
 

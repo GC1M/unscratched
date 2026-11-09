@@ -3,6 +3,8 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { syncReceipts } from '@/receipts/queue';
+
 import { buildReportHtml } from './buildReportHtml';
 import { loadReportData } from './loadReport';
 import type { Acknowledgement } from './types';
@@ -22,6 +24,7 @@ export function reportFileName(kind: 'move_in' | 'move_out', address: string, at
 /** Builds the report PDF, renames it, and opens the share sheet. Returns the PDF uri. */
 export async function exportReport(db: SQLiteDatabase, inspectionId: number, ack: Acknowledgement | null): Promise<string> {
   if (!(await Sharing.isAvailableAsync())) throw new Error('Sharing is not available on this device.');
+  await syncReceipts(db); // best effort, so the PDF has the latest receipts
   const data = await loadReportData(db, inspectionId, ack);
   const { uri } = await Print.printToFileAsync({ html: buildReportHtml(data) });
   const pdf = new File(Paths.cache, reportFileName(data.inspection.kind, data.inspection.address, data.generatedAt));

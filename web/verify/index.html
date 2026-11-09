@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Verify an Unscratched report</title>
+    <link rel="stylesheet" href="/verify.css" />
+    <script type="module" src="/main.js"></script>
+  </head>
+  <body>
+    <main>
+      <h1>Verify an Unscratched report</h1>
+      <p>
+        Unscratched registers a SHA-256 fingerprint of each inspection photo with our server. Check a report's
+        verification code, or a single photo, to see when it was registered.
+      </p>
+
+      <form id="code-form">
+        <label for="code">Verification code or photo SHA-256</label>
+        <div class="row">
+          <input id="code" name="code" type="text" inputmode="text" autocomplete="off" autocapitalize="off"
+            spellcheck="false" aria-describedby="code-hint" />
+          <button type="submit">Check</button>
+        </div>
+        <p id="code-hint" class="hint">The 12-character code on the report cover, or a full 64-character hash.</p>
+      </form>
+
+      <div id="drop" class="drop">
+        <label for="photo">Check a photo file</label>
+        <input id="photo" type="file" accept="image/*" aria-describedby="photo-hint" />
+        <p id="photo-hint" class="hint">
+          Choose or drop the original photo (for example from the app's "Export photos" zip). It is hashed on this
+          device. Nothing is uploaded: only the fingerprint is sent.
+        </p>
+      </div>
+
+      <p id="result" role="status" aria-live="polite"></p>
+    </main>
+  </body>
+</html>

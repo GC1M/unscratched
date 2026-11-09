@@ -3,6 +3,8 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { syncReceipts } from '@/receipts/queue';
+
 import { buildComparison } from './comparison';
 import { buildComparisonHtml } from './buildComparisonHtml';
 import { slug } from './export';
@@ -18,6 +20,7 @@ export function comparisonFileName(address: string, at: number): string {
 /** Builds the move-in vs move-out comparison PDF for a move-out inspection and opens the share sheet. Returns the PDF uri. */
 export async function exportComparison(db: SQLiteDatabase, moveOutId: number): Promise<string> {
   if (!(await Sharing.isAvailableAsync())) throw new Error('Sharing is not available on this device.');
+  await syncReceipts(db); // best effort, so the PDF has the latest receipts
   const moveOut = await loadReportData(db, moveOutId, null);
   const moveInId = moveOut.inspection.linked_move_in_id;
   if (moveInId == null) throw new Error('This inspection is not linked to a move-in.');

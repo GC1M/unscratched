@@ -27,6 +27,7 @@ export default function Settings() {
               first={idx === 0}
               onPress={() => setPref(o.value)}
               a11y={o.label}
+              selected={pref === o.value}
               trailing={<Text style={[styles.check, { color: c.ink, opacity: pref === o.value ? 1 : 0 }]}>✓</Text>}
             >
               <RowTitle>{o.label}</RowTitle>

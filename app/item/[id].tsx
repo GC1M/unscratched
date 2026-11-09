@@ -63,7 +63,8 @@ export default function ItemScreen() {
   );
 
   async function onPick(value: Condition) {
-    if (!item || locked) return;
+    if (!item || item.id !== itemId || locked) return;
+    await onNoteBlur();
     const next = item.condition === value ? null : value;
     setItem({ ...item, condition: next });
     setSiblings((s) => s.map((i) => (i.id === itemId ? { ...i, condition: next } : i)));
@@ -71,8 +72,13 @@ export default function ItemScreen() {
   }
 
   async function onNoteBlur() {
-    if (locked) return;
+    if (locked || !item || item.id !== itemId) return;
     await setNote(await getDb(), itemId, note.trim() === '' ? null : note);
+  }
+
+  async function go(fn: () => void) {
+    await onNoteBlur();
+    fn();
   }
 
   const position = siblings.findIndex((i) => i.id === itemId) + 1;
@@ -175,9 +181,9 @@ export default function ItemScreen() {
       {!locked && (
         <Floating>
           {next ? (
-            <Button label={`Next: ${next.name}`} trailing={`${left} left`} onPress={() => router.replace(`/item/${next.id}`)} />
+            <Button label={`Next: ${next.name}`} trailing={`${left} left`} onPress={() => go(() => router.replace(`/item/${next.id}`))} />
           ) : (
-            <Button label={`Done with ${roomName}`} variant="secondary" onPress={() => router.back()} />
+            <Button label={`Done with ${roomName}`} variant="secondary" onPress={() => go(() => router.back())} />
           )}
         </Floating>
       )}

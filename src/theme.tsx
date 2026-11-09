@@ -60,14 +60,16 @@ function apply(pref: ThemePref) {
 /** Loads the saved appearance preference and forces the app-wide color scheme to match. */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [pref, setPrefState] = useState<ThemePref>('system');
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const saved = await getSetting(await getDb(), SETTING_KEY);
+      const saved = await getSetting(await getDb(), SETTING_KEY).catch(() => null);
       if (saved === 'light' || saved === 'dark') {
         setPrefState(saved);
         apply(saved);
       }
+      setReady(true);
     })();
   }, []);
 
@@ -78,7 +80,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(() => ({ pref, setPref }), [pref, setPref]);
-  return <PrefContext.Provider value={value}>{children}</PrefContext.Provider>;
+  return <PrefContext.Provider value={value}>{ready ? children : null}</PrefContext.Provider>;
 }
 
 export function useThemePref() {

@@ -16,6 +16,9 @@ export interface Comparison {
   thumbnails: Record<number, string>; // photo ids are unique across inspections, so both sides share one map
   worsenedCount: number;
   generatedAt: number;
+  receipts: Record<string, number>; // both sides merged; hashes are global
+  moveInCode: string | null;
+  moveOutCode: string | null;
 }
 
 const RANK: Record<Condition, number> = { good: 0, fair: 1, damaged: 2 };
@@ -64,5 +67,8 @@ export function buildComparison(moveIn: ReportData, moveOut: ReportData): Compar
     thumbnails: { ...moveIn.thumbnails, ...moveOut.thumbnails },
     worsenedCount: rooms.reduce((n, r) => n + r.items.filter((i) => i.worsened).length, 0),
     generatedAt: moveOut.generatedAt,
+    receipts: { ...moveIn.receipts, ...moveOut.receipts },
+    moveInCode: moveIn.verificationCode,
+    moveOutCode: moveOut.verificationCode,
   };
 }

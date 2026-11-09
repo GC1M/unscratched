@@ -24,9 +24,10 @@ interface RowProps {
   first?: boolean;
   onPress?: () => void;
   a11y?: string;
+  selected?: boolean;
 }
 
-export function Row({ children, leading, trailing, first, onPress, a11y }: RowProps) {
+export function Row({ children, leading, trailing, first, onPress, a11y, selected }: RowProps) {
   const { c } = useTheme();
   const inner = (
     <>
@@ -42,6 +43,7 @@ export function Row({ children, leading, trailing, first, onPress, a11y }: RowPr
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={a11y}
+      accessibilityState={selected === undefined ? undefined : { selected }}
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: c.hair }]}
     >
       {inner}

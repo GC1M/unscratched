@@ -66,6 +66,8 @@ const fixture = (): ReportData => ({
   thumbnails: { 1: 'data:image/jpeg;base64,AAA', 2: 'data:image/jpeg;base64,BBB', 3: 'data:image/jpeg;base64,CCC', 4: 'data:image/jpeg;base64,DDD', 5: 'data:image/jpeg;base64,EEE' },
   acknowledgement: { tenantName: 'Ana Ruiz', landlordName: null, date: Date.UTC(2026, 0, 2, 12) },
   generatedAt: Date.UTC(2026, 0, 3),
+  receipts: { [photo(1, 1).sha256]: Date.UTC(2026, 0, 2, 11, 5) }, // the other photos are pending
+  verificationCode: 'abcdef012345',
 });
 
 test('matches the snapshot', () => {
@@ -119,6 +121,26 @@ test('blank signature lines when acknowledgement is null; move-out title and unf
   expect(html).toContain('Tenant: <span class="blank"></span>');
   expect(html).toContain('Landlord or manager: <span class="blank"></span>');
   expect(html).toContain(`on ${formatDate(data.generatedAt)}.`);
+});
+
+test('a photo with a receipt shows its server time, the others show "Receipt pending"', () => {
+  const html = buildReportHtml(fixture(), { formatDate });
+  expect(html.match(/Server time: /g)).toHaveLength(1);
+  expect(html).toContain(`<div>${formatDate(Date.UTC(2026, 0, 2, 10, 1))}</div><div>Server time: ${formatDate(Date.UTC(2026, 0, 2, 11, 5))}</div>`);
+  expect(html.match(/Receipt pending/g)).toHaveLength(5);
+});
+
+test('the cover shows the verification code and URL, or "Verification pending", or nothing without photos', () => {
+  const data = fixture();
+  expect(buildReportHtml(data, { formatDate })).toContain(
+    '<dt>Verification</dt><dd>Verification code: abcdef012345<br>unscratched.app/v/abcdef012345</dd>',
+  );
+  data.verificationCode = null;
+  const pending = buildReportHtml(data, { formatDate });
+  expect(pending).toContain('<dt>Verification</dt><dd>Verification pending</dd>');
+  expect(pending).not.toContain('Verification code');
+  data.rooms = [];
+  expect(buildReportHtml(data, { formatDate })).not.toContain('Verification');
 });
 
 test('the default formatter produces a date string', () => {
