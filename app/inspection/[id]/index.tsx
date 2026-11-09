@@ -149,6 +149,16 @@ export default function RoomList() {
           )
         }
       />
+      {locked && (
+        <Pressable
+          style={styles.finish}
+          onPress={() => router.push(`/inspection/${inspectionId}/export`)}
+          accessibilityRole="button"
+          accessibilityLabel="Export report"
+        >
+          <Text style={styles.finishText}>Export report</Text>
+        </Pressable>
+      )}
       {!locked && (
         <>
           <View style={styles.row}>

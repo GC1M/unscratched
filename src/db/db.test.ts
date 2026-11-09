@@ -222,6 +222,27 @@ describe('repo', () => {
     expect((await repo.listInspectionItems(db, insp)).map((i) => i.name)).toEqual(['Walls', 'Tub', 'Sink']);
   });
 
+  test('listInspectionPhotos returns photos of one inspection in room, item, then capture order', async () => {
+    const { db } = await setup();
+    const insp = await repo.createInspection(db, { address: 'x' });
+    const other = await repo.createInspection(db, { address: 'y' });
+    const bath = await repo.addRoom(db, insp, 'Bath');
+    const kitchen = await repo.addRoom(db, insp, 'Kitchen');
+    const walls = await repo.addItem(db, kitchen, 'Walls');
+    const tub = await repo.addItem(db, bath, 'Tub');
+    const sink = await repo.addItem(db, bath, 'Sink');
+    const den = await repo.addItem(db, await repo.addRoom(db, other, 'Den'), 'Floor');
+    await repo.moveRoom(db, kitchen, 'up');
+    const add = (item_id: number, name: string, captured_at: number) =>
+      repo.insertPhoto(db, { item_id, file_uri: name, sha256: name, captured_at, width: 1, height: 1, source: 'camera' });
+    await add(sink, 'sink', 1);
+    await add(tub, 'tub-late', 9);
+    await add(tub, 'tub-early', 2);
+    await add(walls, 'walls', 5);
+    await add(den, 'den', 0);
+    expect((await repo.listInspectionPhotos(db, insp)).map((p) => p.file_uri)).toEqual(['walls', 'tub-early', 'tub-late', 'sink']);
+  });
+
   describe('finished inspections are locked', () => {
     const EDITS = [
       'setCondition',
