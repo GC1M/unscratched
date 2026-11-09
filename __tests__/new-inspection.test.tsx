@@ -61,7 +61,7 @@ test('a move-out date is saved and reminders are scheduled for it', async () => 
   await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/inspection/7'));
   const date = new Date(2027, 5, 30).getTime();
   expect(jest.mocked(createInspectionFromTemplate).mock.calls[0][1]).toMatchObject({ move_out_date: date });
-  expect(scheduleReminders).toHaveBeenCalledWith(date);
+  expect(scheduleReminders).toHaveBeenCalledWith(7, date);
 });
 
 test('an invalid move-out date shows an error and does not create', async () => {

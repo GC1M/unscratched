@@ -46,7 +46,7 @@ export default function NewInspection() {
         move_out_date: moveOutDate,
       });
       // The inspection is saved either way; a scheduling failure must not block it.
-      if (moveOutDate !== null) await scheduleReminders(moveOutDate).catch(() => {});
+      if (moveOutDate !== null) await scheduleReminders(id, moveOutDate).catch(() => {});
       router.replace(`/inspection/${id}`);
     } catch (e) {
       setError(`Could not create the inspection: ${String(e)}`);
