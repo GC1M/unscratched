@@ -19,7 +19,7 @@ The app only shares something when you choose to. If you create a PDF report and
 ## Permissions
 
 - Camera: used only to take inspection photos inside the app. Images are not sent anywhere.
-- Notifications (a future feature): any reminders will be local to your device. No push notification server is involved.
+- Notifications: if you set a move-out date and allow notifications, the app schedules reminders locally on your device (7 days before move-out, and 14 and 30 days after). No push notification server is involved and no push token is created.
 
 ## Planned optional feature: timestamp receipts
 
