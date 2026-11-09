@@ -52,6 +52,12 @@ export const migrations: string[] = [
     server_time INTEGER NOT NULL
   );
   `,
+  `
+  CREATE TABLE setting (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase): Promise<void> {

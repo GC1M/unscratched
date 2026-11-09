@@ -243,6 +243,27 @@ describe('repo', () => {
     expect((await repo.listInspectionPhotos(db, insp)).map((p) => p.file_uri)).toEqual(['walls', 'tub-early', 'tub-late', 'sink']);
   });
 
+  test('settings upsert and read back', async () => {
+    const { db } = await setup();
+    expect(await repo.getSetting(db, 'appearance')).toBeNull();
+    await repo.setSetting(db, 'appearance', 'dark');
+    await repo.setSetting(db, 'appearance', 'light');
+    expect(await repo.getSetting(db, 'appearance')).toBe('light');
+  });
+
+  test('getRoom and countPhotosByItem', async () => {
+    const { db } = await setup();
+    const id = await repo.createInspectionFromTemplate(db, { address: '1 Main St' }, ['Kitchen']);
+    const [room] = await repo.listRooms(db, id);
+    expect(await repo.getRoom(db, room.id)).toEqual(room);
+    const [walls, floor] = await repo.listItems(db, room.id);
+    const photo = { file_uri: 'f', sha256: 'x', captured_at: 1, width: 1, height: 1, source: 'camera' as const };
+    await repo.insertPhoto(db, { ...photo, item_id: walls.id });
+    await repo.insertPhoto(db, { ...photo, item_id: walls.id });
+    expect(await repo.countPhotosByItem(db, room.id)).toEqual(new Map([[walls.id, 2]]));
+    expect((await repo.countPhotosByItem(db, room.id)).get(floor.id)).toBeUndefined();
+  });
+
   describe('copyFromMoveIn', () => {
     async function moveIn(finish = true) {
       const f = await setup();

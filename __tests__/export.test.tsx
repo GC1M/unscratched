@@ -11,10 +11,7 @@ jest.mock('@/db/client', () => ({ getDb: jest.fn(async () => ({})) }));
 jest.mock('@/db/repo');
 jest.mock('@/report/export', () => ({ exportReport: jest.fn() }));
 jest.mock('@/report/exportPhotosZip', () => ({ exportPhotosZip: jest.fn() }));
-jest.mock('expo-router', () => ({
-  Stack: { Screen: () => null },
-  useLocalSearchParams: () => ({ id: '1' }),
-}));
+jest.mock('expo-router', () => jest.requireActual('@/test/expoRouter').mockExpoRouter({ useLocalSearchParams: () => ({ id: '1' }) }));
 
 const finishedAt = new Date(2026, 0, 20).getTime();
 
@@ -28,7 +25,9 @@ beforeEach(() => {
 test('Export PDF is disabled until the tenant name is filled, then exports with the typed names', async () => {
   await render(<ExportReport />);
   expect(
-    await screen.findByText(`I confirm this report reflects the unit's condition on ${new Date(finishedAt).toLocaleDateString()}.`),
+    await screen.findByText(
+      `I confirm this report reflects the unit's condition on ${new Date(finishedAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}.`,
+    ),
   ).toBeOnTheScreen();
   expect(screen.getByLabelText('Landlord or manager typed name').props.value).toBe('Lee');
   const button = screen.getByRole('button', { name: 'Export PDF' });
