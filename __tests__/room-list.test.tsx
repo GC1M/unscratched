@@ -8,6 +8,7 @@ import RoomList from '../app/inspection/[id]/index';
 
 jest.mock('@/db/client', () => ({ getDb: jest.fn(async () => ({})) }));
 jest.mock('@/db/repo');
+jest.mock('@/report/exportComparison', () => ({ exportComparison: jest.fn() }));
 jest.mock('expo-router', () => {
   const { useEffect } = jest.requireActual('react');
   return {
@@ -131,4 +132,35 @@ test('Export report shows only for a finished inspection and opens the export sc
   await render(<RoomList />);
   await fireEvent.press(await screen.findByLabelText('Export report'));
   expect(router.push).toHaveBeenCalledWith('/inspection/1/export');
+});
+
+test('Export comparison shows only for a finished move-out linked to a move-in and exports it', async () => {
+  const { exportComparison } = jest.requireMock('@/report/exportComparison');
+  const cases = [
+    { kind: 'move_in', finished_at: 5, linked_move_in_id: null },
+    { kind: 'move_out', finished_at: null, linked_move_in_id: 3 },
+    { kind: 'move_out', finished_at: 5, linked_move_in_id: null },
+  ];
+  for (const c of cases) {
+    r.getInspection.mockResolvedValue({ id: 1, address: '1 Main St', ...c } as never);
+    const { unmount } = await render(<RoomList />);
+    await screen.findByText('Kitchen');
+    expect(screen.queryByLabelText('Export comparison')).toBeNull();
+    await unmount();
+  }
+
+  r.getInspection.mockResolvedValue({ id: 1, address: '1 Main St', kind: 'move_out', finished_at: 5, linked_move_in_id: 3 } as never);
+  await render(<RoomList />);
+  await fireEvent.press(await screen.findByLabelText('Export comparison'));
+  expect(exportComparison).toHaveBeenCalledWith({}, 1);
+});
+
+test('a failed comparison export shows an alert', async () => {
+  const { exportComparison } = jest.requireMock('@/report/exportComparison');
+  exportComparison.mockRejectedValueOnce(new Error('boom'));
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  r.getInspection.mockResolvedValue({ id: 1, address: '1 Main St', kind: 'move_out', finished_at: 5, linked_move_in_id: 3 } as never);
+  await render(<RoomList />);
+  await fireEvent.press(await screen.findByLabelText('Export comparison'));
+  expect(alert).toHaveBeenCalledWith('Comparison export failed', 'boom');
 });

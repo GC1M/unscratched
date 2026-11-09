@@ -17,6 +17,7 @@ import {
 } from '@/db/repo';
 import type { Room } from '@/db/types';
 import { progress, type Progress } from '@/lib/progress';
+import { exportComparison } from '@/report/exportComparison';
 
 type RoomRow = Room & { done: number; total: number };
 
@@ -24,6 +25,8 @@ export default function RoomList() {
   const inspectionId = Number(useLocalSearchParams<{ id: string }>().id);
   const [address, setAddress] = useState('');
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
+  const [comparable, setComparable] = useState(false);
+  const [comparing, setComparing] = useState(false);
   const [summary, setSummary] = useState<Progress | null>(null);
   const [rooms, setRooms] = useState<RoomRow[]>([]);
   const [editing, setEditing] = useState<{ id: number; name: string } | null>(null);
@@ -34,6 +37,7 @@ export default function RoomList() {
     const inspection = await getInspection(db, inspectionId);
     setAddress(inspection?.address ?? '');
     setFinishedAt(inspection?.finished_at ?? null);
+    setComparable(inspection?.kind === 'move_out' && inspection.linked_move_in_id != null);
     const [list, items] = await Promise.all([listRooms(db, inspectionId), listInspectionItems(db, inspectionId)]);
     setSummary(progress(list, items));
     setRooms(
@@ -84,6 +88,18 @@ export default function RoomList() {
         { text: 'Finish', onPress: () => run((db) => finishInspection(db, inspectionId)) },
       ],
     );
+
+  const shareComparison = async () => {
+    if (comparing) return;
+    setComparing(true);
+    try {
+      await exportComparison(await getDb(), inspectionId);
+    } catch (e) {
+      Alert.alert('Comparison export failed', e instanceof Error ? e.message : String(e));
+    } finally {
+      setComparing(false);
+    }
+  };
 
   const locked = finishedAt != null;
 
@@ -159,6 +175,17 @@ export default function RoomList() {
           <Text style={styles.finishText}>Export report</Text>
         </Pressable>
       )}
+      {locked && comparable && (
+        <Pressable
+          style={[styles.finish, comparing && styles.disabled]}
+          onPress={shareComparison}
+          disabled={comparing}
+          accessibilityRole="button"
+          accessibilityLabel="Export comparison"
+        >
+          <Text style={styles.finishText}>{comparing ? 'Building comparison...' : 'Export comparison'}</Text>
+        </Pressable>
+      )}
       {!locked && (
         <>
           <View style={styles.row}>
@@ -194,6 +221,7 @@ const styles = StyleSheet.create({
   summary: { fontSize: 15, fontWeight: '600', marginBottom: 8 },
   meta: { fontSize: 13, color: '#666' },
   finish: { minHeight: 48, borderRadius: 8, backgroundColor: '#137333', alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  disabled: { opacity: 0.5 },
   finishText: { color: '#fff', fontSize: 17, fontWeight: '600' },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 8, fontSize: 16 },
 });

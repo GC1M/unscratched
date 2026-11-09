@@ -3,7 +3,7 @@ import type { Condition } from '@/db/types';
 import { escapeHtml } from './escapeHtml';
 import type { ReportData } from './types';
 
-const CONDITION_LABELS: Record<Condition, string> = { good: 'Good', fair: 'Fair', damaged: 'Damaged' };
+export const CONDITION_LABELS: Record<Condition, string> = { good: 'Good', fair: 'Fair', damaged: 'Damaged' };
 
 const BLANK = '<span class="blank"></span>';
 
@@ -30,7 +30,7 @@ th { background: #f2f2f2; }
 footer { margin-top: 24pt; font-size: 8pt; color: #666; }
 `;
 
-const defaultFormatDate = (ms: number) =>
+export const defaultFormatDate = (ms: number) =>
   new Date(ms).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 /** Pure: report data in, a complete print-ready HTML document out. Every user string goes through escapeHtml. */
