@@ -3,6 +3,7 @@ import { Text } from 'react-native';
 
 import RootLayout from '../app/_layout';
 import Onboarding from '../app/onboarding';
+import { getDb } from '@/db/client';
 import { getSetting, setSetting } from '@/db/repo';
 
 jest.mock('@expo-google-fonts/newsreader', () => ({ useFonts: () => [true, null] }));
@@ -12,7 +13,10 @@ jest.mock('@/receipts/queue', () => ({ syncReceipts: jest.fn() }));
 
 const routes = { _layout: RootLayout, index: () => <Text>Home screen</Text>, onboarding: Onboarding };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  jest.mocked(getDb).mockResolvedValue({} as never);
+});
 
 test('first launch shows onboarding; finishing it saves the flag and lands on home', async () => {
   jest.mocked(getSetting).mockResolvedValue(null);
@@ -44,4 +48,13 @@ test('after completion the app opens straight to home', async () => {
 
   expect(await screen.findByText('Home screen')).toBeOnTheScreen();
   expect(screen.queryByText('26% of renters lose a deposit')).not.toBeOnTheScreen();
+});
+
+test('if the database fails to open, onboarding still shows instead of a blank app', async () => {
+  jest.mocked(getDb).mockRejectedValue(new Error('disk full'));
+  await renderRouter(routes);
+
+  expect(await screen.findByText('26% of renters lose a deposit')).toBeOnTheScreen();
+  await fireEvent.press(screen.getByTestId('onboarding-skip'));
+  expect(await screen.findByText('Home screen')).toBeOnTheScreen();
 });

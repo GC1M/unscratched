@@ -64,7 +64,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      const saved = await getSetting(await getDb(), SETTING_KEY).catch(() => null);
+      const saved = await getDb()
+        .then((db) => getSetting(db, SETTING_KEY))
+        .catch(() => null);
       if (saved === 'light' || saved === 'dark') {
         setPrefState(saved);
         apply(saved);

@@ -17,7 +17,7 @@ const PAGES = [
   },
   {
     title: 'Your data stays on your phone',
-    body: 'No account, no uploads. Photos and reports live on this device. Back up with iCloud.',
+    body: 'No account. Photos, addresses, and notes stay on this device. Only photo fingerprints are sent, to get timestamp receipts. Back up with iCloud.',
   },
 ];
 
