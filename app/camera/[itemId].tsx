@@ -1,10 +1,12 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/Button';
+import { Problem, errorMessage } from '@/components/Status';
 import { getDb } from '@/db/client';
+import { getFinishedAt } from '@/db/repo';
 import { capturePhoto } from '@/lib/photos';
 import { useTheme } from '@/theme';
 
@@ -15,6 +17,13 @@ export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const camera = useRef<CameraView>(null);
   const [saving, setSaving] = useState(false);
+  // undefined while checking; a finished inspection (e.g. reached by a crafted deep link) gets no shutter.
+  const [locked, setLocked] = useState<boolean>();
+  const [error, setError] = useState<unknown>(null);
+
+  useEffect(() => {
+    (async () => setLocked((await getFinishedAt(await getDb(), 'item', Number(itemId))) != null))().catch(setError);
+  }, [itemId]);
 
   async function onShutter() {
     if (!camera.current || saving) return;
@@ -30,7 +39,17 @@ export default function CameraScreen() {
   }
 
   let body;
-  if (!permission) {
+  if (error || locked) {
+    body = (
+      <View style={[styles.center, styles.message, { backgroundColor: c.plaster }]}>
+        {error ? (
+          <Problem title="Could not open the camera" body={errorMessage(error)} />
+        ) : (
+          <Problem title="This inspection is finished" body="Photos are locked so the report can be trusted." />
+        )}
+      </View>
+    );
+  } else if (!permission || locked === undefined) {
     body = <ActivityIndicator style={[styles.center, { backgroundColor: c.plaster }]} />;
   } else if (!permission.granted) {
     const canAsk = permission.canAskAgain;
