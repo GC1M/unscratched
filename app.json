@@ -12,6 +12,9 @@
     "android": {
       "package": "app.unscratched"
     },
-    "plugins": ["expo-router"]
+    "plugins": [
+      "expo-router",
+      "expo-sqlite"
+    ]
   }
 }
