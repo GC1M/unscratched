@@ -69,6 +69,15 @@ test('shows the empty state and the new inspection button', async () => {
   expect(router.push).toHaveBeenCalledWith('/settings');
 });
 
+test('with only finished inspections, lists them without the "No inspections yet" empty state', async () => {
+  jest.mocked(listInspections).mockResolvedValue([{ ...base, finished_at: new Date(2026, 1, 1).getTime() }]);
+  await render(<Home />);
+
+  expect(await screen.findByText('Report ready')).toBeOnTheScreen();
+  expect(screen.queryByText('No inspections yet')).toBeNull();
+  expect(screen.getByRole('button', { name: 'New move-in inspection' })).toBeOnTheScreen();
+});
+
 test('shows a spinner while loading, then a DB error with a working retry', async () => {
   jest.mocked(listInspections).mockReturnValueOnce(new Promise(() => {}));
   await render(<Home />);

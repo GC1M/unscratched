@@ -43,6 +43,19 @@ test('Continue opens the next unchecked item', async () => {
   expect(router.push).toHaveBeenCalledWith('/item/2');
 });
 
+const insideAccessible = (el: ReturnType<typeof screen.getByRole>) => {
+  for (let p = el.parent; p; p = p.parent) if (p.props.accessible) return true;
+  return false;
+};
+
+test('Edit mode: the delete control is not nested inside the row button, so VoiceOver can reach it', async () => {
+  await render(<RoomItems />);
+  await screen.findByText('Walls');
+  await fireEvent.press(screen.getByLabelText('Edit items'));
+  expect(insideAccessible(screen.getByRole('button', { name: 'Rename Walls' }))).toBe(false);
+  expect(insideAccessible(screen.getByRole('button', { name: 'Delete Walls' }))).toBe(false);
+});
+
 test('add, rename, and delete items', async () => {
   r.addItem.mockImplementation(async (_db, roomId, name) => {
     items = [...items, { id: 3, room_id: roomId, name, condition: null, note: null, sort: 2 }];

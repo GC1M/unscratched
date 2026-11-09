@@ -8,7 +8,7 @@ import { FinishedBanner } from '@/components/FinishedBanner';
 import { Group, Row, RowTitle } from '@/components/Group';
 import { InlineInput } from '@/components/InlineInput';
 import { ProgressBar } from '@/components/ProgressBar';
-import { Floating, Screen } from '@/components/Screen';
+import { Screen } from '@/components/Screen';
 import { Loading, Problem, errorMessage } from '@/components/Status';
 import { getDb } from '@/db/client';
 import {
@@ -26,6 +26,7 @@ import {
 import type { Inspection, Room } from '@/db/types';
 import { kindLabel, shortDate } from '@/lib/format';
 import { nextRoom } from '@/lib/next';
+import { cancelReminders } from '@/lib/scheduleReminders';
 import { progress, type Progress } from '@/lib/progress';
 import { syncReceipts } from '@/receipts/queue';
 import { exportComparison } from '@/report/exportComparison';
@@ -136,6 +137,7 @@ export default function RoomList() {
     setDeleting(true);
     try {
       await deleteInspection(await getDb(), inspectionId);
+      void cancelReminders(inspectionId).catch(() => {}); // the inspection is gone either way
       router.back();
     } catch (e) {
       setDeleting(false);
@@ -214,7 +216,29 @@ export default function RoomList() {
           </Stack.Toolbar>
         )}
       </Stack.Screen>
-      <Screen>
+      <Screen
+        floating={
+          editing ? null : locked ? (
+            <View style={styles.stack}>
+              <Button label="Export report" onPress={() => router.push(`/inspection/${inspectionId}/export`)} />
+              {comparable && (
+                <Button label={comparing ? 'Building comparison' : 'Export comparison'} a11y="Export comparison" variant="secondary" onPress={shareComparison} busy={comparing} />
+              )}
+              {inspection?.kind === 'move_in' && (
+                <Button label="Start move-out" variant="secondary" onPress={startMoveOut} busy={starting} />
+              )}
+            </View>
+          ) : allDone ? (
+            <Button label="Finish inspection" onPress={confirmFinish} />
+          ) : next ? (
+            <Button
+              label={`Continue with ${next.name}`}
+              trailing={`${roomsLeft} ${roomsLeft === 1 ? 'room' : 'rooms'} left`}
+              onPress={() => router.push(`/inspection/${inspectionId}/room/${next.id}`)}
+            />
+          ) : null
+        }
+      >
         {inspection && (
           <Text style={[styles.subtitle, { color: c.ink60 }]}>
             {kindLabel(inspection.kind)}, started {shortDate(inspection.started_at)}
@@ -243,7 +267,7 @@ export default function RoomList() {
                 first={idx === 0}
                 onPress={editing ? () => setRenaming({ id: room.id, name: room.name }) : () => router.push(`/inspection/${inspectionId}/room/${room.id}`)}
                 a11y={editing ? `Rename ${room.name}` : `Open ${room.name}, ${room.done} of ${room.total} items${room.fair ? `, ${room.fair} fair` : ''}${room.damaged ? `, ${room.damaged} damaged` : ''}`}
-                leading={
+                controlsBefore={
                   editing ? (
                     <Pressable
                       accessibilityRole="button"
@@ -256,7 +280,7 @@ export default function RoomList() {
                     </Pressable>
                   ) : undefined
                 }
-                trailing={
+                controlsAfter={
                   editing ? (
                     <View style={styles.reorder}>
                       <Pressable accessibilityRole="button" accessibilityLabel={`Move ${room.name} up`} hitSlop={8} onPress={() => run((db) => moveRoom(db, room.id, 'up'))} style={styles.arrow}>
@@ -266,6 +290,11 @@ export default function RoomList() {
                         <Text maxFontSizeMultiplier={1} style={[styles.arrowText, { color: c.ink60 }]}>↓</Text>
                       </Pressable>
                     </View>
+                  ) : undefined
+                }
+                trailing={
+                  editing ? (
+                    <View />
                   ) : (
                     <View style={styles.right}>
                       {room.fair > 0 && (
@@ -311,29 +340,6 @@ export default function RoomList() {
           style={styles.delete}
         />
       </Screen>
-      {!editing && (
-        <Floating>
-          {locked ? (
-            <View style={styles.stack}>
-              <Button label="Export report" onPress={() => router.push(`/inspection/${inspectionId}/export`)} />
-              {comparable && (
-                <Button label={comparing ? 'Building comparison' : 'Export comparison'} a11y="Export comparison" variant="secondary" onPress={shareComparison} busy={comparing} />
-              )}
-              {inspection?.kind === 'move_in' && (
-                <Button label="Start move-out" variant="secondary" onPress={startMoveOut} busy={starting} />
-              )}
-            </View>
-          ) : allDone ? (
-            <Button label="Finish inspection" onPress={confirmFinish} />
-          ) : next ? (
-            <Button
-              label={`Continue with ${next.name}`}
-              trailing={`${roomsLeft} ${roomsLeft === 1 ? 'room' : 'rooms'} left`}
-              onPress={() => router.push(`/inspection/${inspectionId}/room/${next.id}`)}
-            />
-          ) : null}
-        </Floating>
-      )}
     </>
   );
 }

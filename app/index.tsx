@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Button';
 import { Group, Row, RowMeta, RowTitle, SectionLabel } from '@/components/Group';
 import { ProgressBar } from '@/components/ProgressBar';
-import { Floating, Screen } from '@/components/Screen';
+import { Screen } from '@/components/Screen';
 import { Loading, Problem, errorMessage } from '@/components/Status';
 import { getDb } from '@/db/client';
 import { listInspectionItems, listInspections, listRooms } from '@/db/repo';
@@ -76,7 +76,20 @@ export default function Home() {
           <Stack.Toolbar.Button icon="gearshape" accessibilityLabel="Settings" onPress={() => router.push('/settings')} />
         </Stack.Toolbar>
       </Stack.Screen>
-      <Screen>
+      <Screen
+        floating={
+          hero ? (
+            <Button
+              label="Continue inspection"
+              trailing={hero.next ? `${hero.next} next` : undefined}
+              a11y={`Continue inspection, ${address(hero)}`}
+              onPress={() => router.push(`/inspection/${hero.id}`)}
+            />
+          ) : (
+            <Button label="New move-in inspection" onPress={() => router.push('/inspection/new')} />
+          )
+        }
+      >
         {hero ? (
           <Pressable
             accessibilityRole="button"
@@ -96,7 +109,7 @@ export default function Home() {
               />
             )}
           </Pressable>
-        ) : (
+        ) : inspections.length === 0 ? (
           <View style={styles.empty}>
             <Text accessibilityRole="header" style={[styles.emptyTitle, { color: c.ink }]}>
               No inspections yet
@@ -105,7 +118,7 @@ export default function Home() {
               Walk each room before you unpack. About twenty minutes, and the report protects your deposit.
             </Text>
           </View>
-        )}
+        ) : null}
         {rest.length > 0 && (
           <>
             <SectionLabel>Also in progress</SectionLabel>
@@ -157,18 +170,6 @@ export default function Home() {
           </>
         )}
       </Screen>
-      <Floating>
-        {hero ? (
-          <Button
-            label="Continue inspection"
-            trailing={hero.next ? `${hero.next} next` : undefined}
-            a11y={`Continue inspection, ${address(hero)}`}
-            onPress={() => router.push(`/inspection/${hero.id}`)}
-          />
-        ) : (
-          <Button label="New move-in inspection" onPress={() => router.push('/inspection/new')} />
-        )}
-      </Floating>
     </>
   );
 }

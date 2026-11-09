@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
+import { AppState, type AppStateStatus } from 'react-native';
 
 import ItemScreen from '../app/item/[id]';
 import { getFinishedAt, getItem, getRoom, listItems, listPhotos, setCondition, setNote } from '@/db/repo';
@@ -80,6 +81,20 @@ test('note is saved on blur', async () => {
   await fireEvent.changeText(input, 'Scuff by door');
   await fireEvent(input, 'blur');
   await waitFor(() => expect(setNote).toHaveBeenCalledWith(db, 7, 'Scuff by door'));
+});
+
+test('note is saved when the app leaves the foreground mid-typing (no blur)', async () => {
+  const listeners: ((state: AppStateStatus) => void)[] = [];
+  jest.spyOn(AppState, 'addEventListener').mockImplementationOnce((_type, fn) => {
+    listeners.push(fn);
+    return { remove: jest.fn() } as never;
+  });
+  await render(<ItemScreen />);
+  await waitFor(() => expect(getItem).toHaveBeenCalled());
+  await fireEvent.changeText(screen.getByLabelText('Note'), 'Gouge near fridge');
+  expect(setNote).not.toHaveBeenCalled();
+  listeners.forEach((fn) => fn('background'));
+  await waitFor(() => expect(setNote).toHaveBeenCalledWith(db, 7, 'Gouge near fridge'));
 });
 
 test('empty note saves null', async () => {
