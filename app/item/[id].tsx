@@ -1,12 +1,12 @@
 import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, AppState, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { CONDITION_LABEL, ConditionMark } from '@/components/ConditionMark';
 import { FinishedBanner } from '@/components/FinishedBanner';
 import { SectionLabel } from '@/components/Group';
-import { Floating, Screen } from '@/components/Screen';
+import { Screen } from '@/components/Screen';
 import { Loading, Problem, errorMessage } from '@/components/Status';
 import { getDb } from '@/db/client';
 import { getFinishedAt, getItem, getRoom, listItems, listPhotos, setCondition, setNote } from '@/db/repo';
@@ -106,6 +106,18 @@ export default function ItemScreen() {
     }
   }
 
+  // A note is otherwise saved on blur, which never fires if the app is backgrounded or swiped away mid-typing.
+  const saveNote = useRef(onNoteBlur);
+  useEffect(() => {
+    saveNote.current = onNoteBlur;
+  });
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') void saveNote.current();
+    });
+    return () => sub.remove();
+  }, []);
+
   async function go(fn: () => void) {
     if (await onNoteBlur()) fn();
   }
@@ -138,7 +150,15 @@ export default function ItemScreen() {
   return (
     <>
       <Stack.Screen options={{ title: item.name }} />
-      <Screen>
+      <Screen
+        floating={
+          locked ? null : next ? (
+            <Button label={`Next: ${next.name}`} trailing={`${left} left`} onPress={() => go(() => router.replace(`/item/${next.id}`))} />
+          ) : (
+            <Button label={`Done with ${roomName}`} variant="secondary" onPress={() => go(() => router.back())} />
+          )
+        }
+      >
         <Text style={[styles.subtitle, { color: c.ink60 }]}>
           {roomName}, item {position} of {siblings.length}
         </Text>
@@ -229,15 +249,6 @@ export default function ItemScreen() {
           </View>
         </Modal>
       </Screen>
-      {!locked && (
-        <Floating>
-          {next ? (
-            <Button label={`Next: ${next.name}`} trailing={`${left} left`} onPress={() => go(() => router.replace(`/item/${next.id}`))} />
-          ) : (
-            <Button label={`Done with ${roomName}`} variant="secondary" onPress={() => go(() => router.back())} />
-          )}
-        </Floating>
-      )}
     </>
   );
 }

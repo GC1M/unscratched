@@ -7,7 +7,7 @@ import { CONDITION_LABEL, ConditionMark } from '@/components/ConditionMark';
 import { FinishedBanner } from '@/components/FinishedBanner';
 import { Group, Row, RowMeta, RowTitle } from '@/components/Group';
 import { InlineInput } from '@/components/InlineInput';
-import { Floating, Screen } from '@/components/Screen';
+import { Screen } from '@/components/Screen';
 import { Loading, Problem, errorMessage } from '@/components/Status';
 import { getDb } from '@/db/client';
 import { addItem, countPhotosByItem, deleteItem, getInspection, getRoom, listItems, renameItem } from '@/db/repo';
@@ -123,7 +123,13 @@ export default function RoomItems() {
           </Stack.Toolbar>
         )}
       </Stack.Screen>
-      <Screen>
+      <Screen
+        floating={
+          !locked && !editing && next ? (
+            <Button label={`Continue with ${next.name}`} trailing={`${left} left`} onPress={() => router.push(`/item/${next.id}`)} />
+          ) : null
+        }
+      >
         <Text style={[styles.subtitle, { color: c.ink60 }]}>
           {checked} of {items.length} items checked
         </Text>
@@ -145,7 +151,7 @@ export default function RoomItems() {
                 first={idx === 0}
                 onPress={editing ? () => setRenaming({ id: item.id, name: item.name }) : () => router.push(`/item/${item.id}`)}
                 a11y={editing ? `Rename ${item.name}` : `Open ${item.name}, ${meta(item)}`}
-                leading={
+                controlsBefore={
                   editing ? (
                     <Pressable
                       accessibilityRole="button"
@@ -156,10 +162,9 @@ export default function RoomItems() {
                     >
                       <Text maxFontSizeMultiplier={1} style={[styles.minusText, { color: c.onInk }]}>−</Text>
                     </Pressable>
-                  ) : (
-                    <ConditionMark condition={item.condition} />
-                  )
+                  ) : undefined
                 }
+                leading={editing ? undefined : <ConditionMark condition={item.condition} />}
                 trailing={editing ? <View /> : undefined}
               >
                 <RowTitle>{item.name}</RowTitle>
@@ -177,11 +182,6 @@ export default function RoomItems() {
             ))}
         </Group>
       </Screen>
-      {!locked && !editing && next && (
-        <Floating>
-          <Button label={`Continue with ${next.name}`} trailing={`${left} left`} onPress={() => router.push(`/item/${next.id}`)} />
-        </Floating>
-      )}
     </>
   );
 }

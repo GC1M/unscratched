@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
 import * as repo from '@/db/repo';
+import { cancelReminders } from '@/lib/scheduleReminders';
 import type { Item, Room } from '@/db/types';
 import { shortDate } from '@/lib/format';
 
@@ -10,6 +11,7 @@ import RoomList from '../app/inspection/[id]/index';
 jest.mock('@/db/client', () => ({ getDb: jest.fn(async () => ({})) }));
 jest.mock('@/db/repo');
 jest.mock('@/report/exportComparison', () => ({ exportComparison: jest.fn() }));
+jest.mock('@/lib/scheduleReminders', () => ({ cancelReminders: jest.fn(async () => {}) }));
 jest.mock('expo-router', () => jest.requireActual('@/test/expoRouter').mockExpoRouter({ useLocalSearchParams: () => ({ id: '1' }) }));
 
 const r = jest.mocked(repo);
@@ -110,6 +112,23 @@ test('Edit mode: delete asks for confirmation, Up and Down reorder, tapping a na
   expect(alert).toHaveBeenCalled();
   expect(r.deleteRoom).toHaveBeenCalledWith({}, 11);
   expect(screen.queryByText('Bath')).toBeNull();
+});
+
+// iOS merges an accessible element's descendants into it, so a control nested in the row button is unreachable
+// by VoiceOver (and by Maestro). Edit controls must be siblings of the row button.
+const insideAccessible = (el: ReturnType<typeof screen.getByRole>) => {
+  for (let p = el.parent; p; p = p.parent) if (p.props.accessible) return true;
+  return false;
+};
+
+test('Edit mode: delete and reorder controls are not nested inside the row button, so VoiceOver can reach them', async () => {
+  await render(<RoomList />);
+  await screen.findByText('Kitchen');
+  await fireEvent.press(screen.getByLabelText('Edit rooms'));
+  expect(insideAccessible(screen.getByRole('button', { name: 'Rename Kitchen' }))).toBe(false);
+  for (const name of ['Delete Kitchen', 'Move Kitchen up', 'Move Kitchen down']) {
+    expect(insideAccessible(screen.getByRole('button', { name }))).toBe(false);
+  }
 });
 
 test('Finish asks for confirmation, calls finishInspection, then hides edit controls', async () => {
@@ -230,10 +249,12 @@ test('Delete inspection asks first, deletes, then goes back; Cancel deletes noth
   await fireEvent.press(screen.getByTestId('delete-inspection'));
   expect(alert).toHaveBeenCalledWith('Delete this inspection?', expect.stringContaining('cannot be undone'), expect.any(Array));
   expect(r.deleteInspection).not.toHaveBeenCalled();
+  expect(cancelReminders).not.toHaveBeenCalled();
 
   choice = 'Delete';
   await fireEvent.press(screen.getByTestId('delete-inspection'));
   expect(r.deleteInspection).toHaveBeenCalledWith({}, 1);
+  expect(cancelReminders).toHaveBeenCalledWith(1);
   expect(router.back).toHaveBeenCalled();
 });
 
@@ -247,6 +268,7 @@ test('a failed delete shows an alert and stays', async () => {
   await fireEvent.press(await screen.findByTestId('delete-inspection'));
   expect(alert).toHaveBeenLastCalledWith('Could not delete inspection', 'disk full');
   expect(router.back).not.toHaveBeenCalled();
+  expect(cancelReminders).not.toHaveBeenCalled();
 });
 
 test('a load failure shows the error with a retry; a missing inspection says so', async () => {

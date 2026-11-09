@@ -1,5 +1,5 @@
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
 
 import { radius, useTheme } from '@/theme';
 
@@ -22,6 +22,7 @@ interface Props {
 /** Capsule button. Primary is tinted ink glass on iOS 26, solid ink elsewhere. */
 export function Button({ label, trailing, variant = 'primary', onPress, disabled, busy, a11y, style, testID }: Props) {
   const { c } = useTheme();
+  const { fontScale } = useWindowDimensions();
   const fg = variant === 'primary' ? c.onInk : variant === 'danger' ? c.damaged : c.ink;
   const glass = isLiquidGlassAvailable() && variant !== 'tertiary';
   const flat = {
@@ -35,7 +36,9 @@ export function Button({ label, trailing, variant = 'primary', onPress, disabled
       {trailing != null && <Text style={[styles.trailing, { color: fg }]}>{trailing}</Text>}
     </>
   );
-  const body = [styles.body, trailing != null && styles.spread];
+  // Side by side, a long trailing text squeezes the label to one letter per line at accessibility sizes, so stack them.
+  const stacked = trailing != null && fontScale > 1.4;
+  const body = [styles.body, trailing != null && (stacked ? styles.stacked : styles.spread)];
   return (
     <Pressable
       onPress={onPress}
@@ -73,6 +76,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   spread: { justifyContent: 'space-between' },
+  stacked: { flexDirection: 'column', gap: 2, paddingVertical: 10 },
   glass: { overflow: 'hidden' },
   flat: { borderWidth: 1.5 },
   label: { flexShrink: 1, fontSize: 17, fontWeight: '600' },
