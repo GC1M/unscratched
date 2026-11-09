@@ -43,7 +43,7 @@ export default function ExportReport() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="always">
       <Stack.Screen options={{ title: 'Export report' }} />
       {date != null && (
         <Text style={styles.statement}>
