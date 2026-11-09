@@ -7,12 +7,16 @@ import { buildReportHtml } from './buildReportHtml';
 import { loadReportData } from './loadReport';
 import type { Acknowledgement } from './types';
 
+/** Lowercase a-z0-9 words joined by '-', at most 40 chars: safe as a file or folder name. */
+export function slug(text: string, fallback: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || fallback;
+}
+
 /** e.g. Unscratched-move-in-12-main-st-2026-01-20.pdf (local date of generation). */
 export function reportFileName(kind: 'move_in' | 'move_out', address: string, at: number): string {
-  const slug = address.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'report';
   const d = new Date(at);
   const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  return `Unscratched-${kind.replace('_', '-')}-${slug}-${date}.pdf`;
+  return `Unscratched-${kind.replace('_', '-')}-${slug(address, 'report')}-${date}.pdf`;
 }
 
 /** Builds the report PDF, renames it, and opens the share sheet. Returns the PDF uri. */
