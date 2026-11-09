@@ -28,6 +28,7 @@
         }
       ],
       "expo-sharing",
+      "./plugins/withoutPushEntitlement",
       "expo-notifications",
       "expo-font"
     ],
