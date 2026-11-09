@@ -1,7 +1,12 @@
-# Asserts the iOS share sheet is up, then closes it.
+# Asserts the iOS share sheet is up with the PDF named ${FILE}..., then closes it
+# by tapping outside the sheet.
 appId: app.unscratched
 ---
 - extendedWaitUntil:
-    visible: "Copy"
+    visible: "${FILE}.*"
     timeout: 30000
-- tapOn: "Close"
+- assertVisible: "PDF Document.*"
+- tapOn:
+    id: "PopoverDismissRegion"
+    point: "50%,10%"
+- assertNotVisible: "PDF Document.*"

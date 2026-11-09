@@ -11,7 +11,8 @@ jest.mock('@/db/client', () => ({ getDb: jest.fn().mockResolvedValue({}) }));
 jest.mock('@/db/repo', () => ({ getSetting: jest.fn(), setSetting: jest.fn().mockResolvedValue(undefined) }));
 jest.mock('@/receipts/queue', () => ({ syncReceipts: jest.fn() }));
 
-const routes = { _layout: RootLayout, index: () => <Text>Home screen</Text>, onboarding: Onboarding };
+// settings stands in for every other app route: none may be reachable before onboarding.
+const routes = { _layout: RootLayout, index: () => <Text>Home screen</Text>, onboarding: Onboarding, settings: () => <Text>Settings screen</Text> };
 
 beforeEach(() => {
   jest.clearAllMocks();
