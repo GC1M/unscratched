@@ -4,7 +4,7 @@ export default function Home() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Unscratched</Text>
-      <Text style={styles.tagline}>Prove your rental&apos;s condition at move-in, get your deposit back at move-out.</Text>
+      <Text style={styles.tagline}>Document your rental&apos;s condition at move-in and move-out.</Text>
     </View>
   );
 }
