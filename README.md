@@ -1,4 +1,4 @@
-# Unscratched
+<h1 align="center"><img src="assets/brand/logo-lockup.png" alt="Unscratched" width="320"></h1>
 
 Free iOS and Android app that walks renters through a room-by-room move-in inspection and exports an unwatermarked PDF report.
 

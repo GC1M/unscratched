@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
 import { getDb } from '@/db/client';
+import { OnboardingProvider, useOnboarding } from '@/onboarding';
 import { syncReceipts } from '@/receipts/queue';
 import { serif, ThemeProvider, useTheme } from '@/theme';
 
@@ -11,6 +12,7 @@ const sync = () => getDb().then(syncReceipts).catch(() => {});
 
 function Navigator() {
   const { c, scheme } = useTheme();
+  const { onboarded } = useOnboarding();
   return (
     <>
       <Stack
@@ -27,7 +29,12 @@ function Navigator() {
           contentStyle: { backgroundColor: c.plaster },
         }}
       >
-        <Stack.Screen name="index" options={{ title: 'Unscratched', headerLargeTitleStyle: { fontSize: 34, color: c.ink } }} />
+        <Stack.Protected guard={onboarded}>
+          <Stack.Screen name="index" options={{ title: 'Unscratched', headerLargeTitleStyle: { fontSize: 34, color: c.ink } }} />
+        </Stack.Protected>
+        <Stack.Protected guard={!onboarded}>
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+        </Stack.Protected>
       </Stack>
     </>
   );
@@ -46,7 +53,9 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
   return (
     <ThemeProvider>
-      <Navigator />
+      <OnboardingProvider>
+        <Navigator />
+      </OnboardingProvider>
     </ThemeProvider>
   );
 }

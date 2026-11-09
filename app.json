@@ -10,7 +10,11 @@
       "bundleIdentifier": "app.unscratched"
     },
     "android": {
-      "package": "app.unscratched"
+      "package": "app.unscratched",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F7F6F3"
+      }
     },
     "plugins": [
       "expo-router",
@@ -24,7 +28,12 @@
         }
       ],
       "expo-sharing",
+      "expo-notifications",
       "expo-font"
-    ]
+    ],
+    "icon": "./assets/icon.png",
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
   }
 }
