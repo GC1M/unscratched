@@ -208,6 +208,90 @@ describe('repo', () => {
     expect(count(raw, 'photo')).toBe(0);
   });
 
+  test('listInspectionItems returns every item of one inspection in room then item order', async () => {
+    const { db } = await setup();
+    const insp = await repo.createInspection(db, { address: 'x' });
+    const other = await repo.createInspection(db, { address: 'y' });
+    const bath = await repo.addRoom(db, insp, 'Bath');
+    const kitchen = await repo.addRoom(db, insp, 'Kitchen');
+    await repo.addItem(db, kitchen, 'Walls');
+    await repo.addItem(db, bath, 'Tub');
+    await repo.addItem(db, bath, 'Sink');
+    await repo.addItem(db, await repo.addRoom(db, other, 'Den'), 'Floor');
+    await repo.moveRoom(db, kitchen, 'up');
+    expect((await repo.listInspectionItems(db, insp)).map((i) => i.name)).toEqual(['Walls', 'Tub', 'Sink']);
+  });
+
+  describe('finished inspections are locked', () => {
+    const EDITS = [
+      'setCondition',
+      'setNote',
+      'renameRoom',
+      'addRoom',
+      'insertPhoto',
+      'addItem',
+      'renameItem',
+      'moveRoom',
+      'deleteItem',
+      'deleteRoom',
+    ] as const;
+
+    async function fixture() {
+      const { db } = await setup();
+      const insp = await repo.createInspection(db, { address: 'x' });
+      const room = await repo.addRoom(db, insp, 'Kitchen');
+      const item = await repo.addItem(db, room, 'Walls');
+      const photo = {
+        item_id: item,
+        file_uri: 'f',
+        sha256: 's',
+        captured_at: 1,
+        width: 1,
+        height: 1,
+        source: 'camera' as const,
+      };
+      const edits: Record<(typeof EDITS)[number], () => Promise<unknown>> = {
+        setCondition: () => repo.setCondition(db, item, 'good'),
+        setNote: () => repo.setNote(db, item, 'note'),
+        renameRoom: () => repo.renameRoom(db, room, 'Galley'),
+        addRoom: () => repo.addRoom(db, insp, 'Hall'),
+        insertPhoto: () => repo.insertPhoto(db, photo),
+        addItem: () => repo.addItem(db, room, 'Floor'),
+        renameItem: () => repo.renameItem(db, item, 'Paint'),
+        moveRoom: () => repo.moveRoom(db, room, 'down'),
+        deleteItem: () => repo.deleteItem(db, item),
+        deleteRoom: () => repo.deleteRoom(db, room),
+      };
+      return { db, insp, edits };
+    }
+
+    test('edits work before finishing', async () => {
+      const { edits } = await fixture();
+      for (const edit of Object.values(edits)) await expect(edit()).resolves.not.toThrow();
+    });
+
+    test.each(EDITS)('%s throws InspectionLockedError after finishing and changes nothing', async (name) => {
+      const { db, insp, edits } = await fixture();
+      jest.spyOn(Date, 'now').mockReturnValueOnce(1234);
+      await repo.finishInspection(db, insp);
+      expect((await repo.getInspection(db, insp))?.finished_at).toBe(1234);
+      await expect(edits[name]()).rejects.toThrow(repo.InspectionLockedError);
+      expect((await repo.listRooms(db, insp)).map((r) => r.name)).toEqual(['Kitchen']);
+      const items = await repo.listInspectionItems(db, insp);
+      expect(items).toHaveLength(1);
+      expect(items[0]).toMatchObject({ name: 'Walls', condition: null, note: null });
+      expect(await repo.listPhotos(db, items[0].id)).toEqual([]);
+    });
+
+    test('finishing twice throws, deleting a finished inspection is allowed', async () => {
+      const { db, insp } = await fixture();
+      await repo.finishInspection(db, insp);
+      await expect(repo.finishInspection(db, insp)).rejects.toThrow(repo.InspectionLockedError);
+      await repo.deleteInspection(db, insp);
+      expect(await repo.getInspection(db, insp)).toBeNull();
+    });
+  });
+
   test('schema rejects invalid condition', async () => {
     const { db } = await setup();
     const insp = await repo.createInspection(db, { address: 'x' });

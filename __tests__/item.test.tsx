@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import ItemScreen from '../app/item/[id]';
-import { getItem, listPhotos, setCondition, setNote } from '@/db/repo';
+import { getFinishedAt, getItem, listPhotos, setCondition, setNote } from '@/db/repo';
 import type { Item, Photo } from '@/db/types';
 
 const db = {};
@@ -9,6 +9,7 @@ const mockPush = jest.fn();
 
 jest.mock('@/db/client', () => ({ getDb: jest.fn(() => Promise.resolve(db)) }));
 jest.mock('@/db/repo', () => ({
+  getFinishedAt: jest.fn(),
   getItem: jest.fn(),
   listPhotos: jest.fn(),
   setCondition: jest.fn(() => Promise.resolve()),
@@ -37,6 +38,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.mocked(getItem).mockResolvedValue(item);
   jest.mocked(listPhotos).mockResolvedValue([]);
+  jest.mocked(getFinishedAt).mockResolvedValue(null);
 });
 
 test('tapping a chip selects it and saves; tapping again clears it', async () => {
@@ -76,4 +78,27 @@ test('renders photos and Add photo navigates to the camera', async () => {
   expect(screen.getByLabelText('Photo 2')).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole('button', { name: 'Add photo' }));
   expect(mockPush).toHaveBeenCalledWith('/camera/7');
+});
+
+test('finished inspection: chips read-only, note not editable, Add photo hidden, banner shown', async () => {
+  jest.mocked(getFinishedAt).mockResolvedValue(5);
+  jest.mocked(getItem).mockResolvedValue({ ...item, condition: 'good', note: 'Clean' });
+  jest.mocked(listPhotos).mockResolvedValue([photo(1)]);
+  await render(<ItemScreen />);
+  expect(await screen.findByText(`Finished ${new Date(5).toLocaleDateString()}`)).toBeOnTheScreen();
+  expect(getFinishedAt).toHaveBeenCalledWith(db, 'item', 7);
+
+  const fair = screen.getByRole('radio', { name: 'Fair' });
+  expect(fair).toBeDisabled();
+  await fireEvent.press(fair);
+  expect(screen.getByRole('radio', { name: 'Good' })).toBeSelected();
+  expect(setCondition).not.toHaveBeenCalled();
+
+  const note = screen.getByLabelText('Note');
+  expect(note.props.editable).toBe(false);
+  await fireEvent(note, 'blur');
+  expect(setNote).not.toHaveBeenCalled();
+
+  expect(screen.getByLabelText('Photo 1')).toBeOnTheScreen();
+  expect(screen.queryByRole('button', { name: 'Add photo' })).toBeNull();
 });

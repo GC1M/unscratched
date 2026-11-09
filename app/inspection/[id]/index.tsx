@@ -3,15 +3,28 @@ import { useCallback, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/Button';
+import { FinishedBanner } from '@/components/FinishedBanner';
 import { getDb } from '@/db/client';
-import { addRoom, deleteRoom, getInspection, listItems, listRooms, moveRoom, renameRoom } from '@/db/repo';
+import {
+  addRoom,
+  deleteRoom,
+  finishInspection,
+  getInspection,
+  listInspectionItems,
+  listRooms,
+  moveRoom,
+  renameRoom,
+} from '@/db/repo';
 import type { Room } from '@/db/types';
+import { progress, type Progress } from '@/lib/progress';
 
 type RoomRow = Room & { done: number; total: number };
 
 export default function RoomList() {
   const inspectionId = Number(useLocalSearchParams<{ id: string }>().id);
   const [address, setAddress] = useState('');
+  const [finishedAt, setFinishedAt] = useState<number | null>(null);
+  const [summary, setSummary] = useState<Progress | null>(null);
   const [rooms, setRooms] = useState<RoomRow[]>([]);
   const [editing, setEditing] = useState<{ id: number; name: string } | null>(null);
   const [newName, setNewName] = useState('');
@@ -20,15 +33,15 @@ export default function RoomList() {
     const db = await getDb();
     const inspection = await getInspection(db, inspectionId);
     setAddress(inspection?.address ?? '');
-    const list = await listRooms(db, inspectionId);
-    // ponytail: one query per room; the real progress module lands in #12.
-    const rows = await Promise.all(
-      list.map(async (room) => {
-        const items = await listItems(db, room.id);
-        return { ...room, done: items.filter((i) => i.condition !== null).length, total: items.length };
+    setFinishedAt(inspection?.finished_at ?? null);
+    const [list, items] = await Promise.all([listRooms(db, inspectionId), listInspectionItems(db, inspectionId)]);
+    setSummary(progress(list, items));
+    setRooms(
+      list.map((room) => {
+        const own = items.filter((i) => i.room_id === room.id);
+        return { ...room, done: own.filter((i) => i.condition != null).length, total: own.length };
       }),
     );
-    setRooms(rows);
   }, [inspectionId]);
 
   useFocusEffect(
@@ -62,9 +75,27 @@ export default function RoomList() {
       { text: 'Delete', style: 'destructive', onPress: () => run((db) => deleteRoom(db, room.id)) },
     ]);
 
+  const confirmFinish = () =>
+    Alert.alert(
+      'Finish inspection?',
+      "A finished inspection can't be edited. Conditions, notes, rooms, and photos will be locked so the report can be trusted.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Finish', onPress: () => run((db) => finishInspection(db, inspectionId)) },
+      ],
+    );
+
+  const locked = finishedAt != null;
+
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: address }} />
+      {locked && <FinishedBanner finishedAt={finishedAt} />}
+      {summary && (
+        <Text style={styles.summary}>
+          {summary.roomsDone} of {summary.roomsTotal} rooms done
+        </Text>
+      )}
       <FlatList
         data={rooms}
         keyExtractor={(r) => String(r.id)}
@@ -94,33 +125,53 @@ export default function RoomList() {
                   {room.done}/{room.total} items
                 </Text>
               </Pressable>
-              <Button label="Up" a11y={`Move ${room.name} up`} onPress={() => run((db) => moveRoom(db, room.id, 'up'))} />
-              <Button
-                label="Down"
-                a11y={`Move ${room.name} down`}
-                onPress={() => run((db) => moveRoom(db, room.id, 'down'))}
-              />
-              <Button
-                label="Rename"
-                a11y={`Rename ${room.name}`}
-                onPress={() => setEditing({ id: room.id, name: room.name })}
-              />
-              <Button label="Delete" a11y={`Delete ${room.name}`} onPress={() => confirmDelete(room)} />
+              {!locked && (
+                <>
+                  <Button
+                    label="Up"
+                    a11y={`Move ${room.name} up`}
+                    onPress={() => run((db) => moveRoom(db, room.id, 'up'))}
+                  />
+                  <Button
+                    label="Down"
+                    a11y={`Move ${room.name} down`}
+                    onPress={() => run((db) => moveRoom(db, room.id, 'down'))}
+                  />
+                  <Button
+                    label="Rename"
+                    a11y={`Rename ${room.name}`}
+                    onPress={() => setEditing({ id: room.id, name: room.name })}
+                  />
+                  <Button label="Delete" a11y={`Delete ${room.name}`} onPress={() => confirmDelete(room)} />
+                </>
+              )}
             </View>
           )
         }
       />
-      <View style={styles.row}>
-        <TextInput
-          style={[styles.input, styles.grow]}
-          value={newName}
-          onChangeText={setNewName}
-          placeholder="New room name"
-          accessibilityLabel="New room name"
-          onSubmitEditing={add}
-        />
-        <Button label="Add room" onPress={add} />
-      </View>
+      {!locked && (
+        <>
+          <View style={styles.row}>
+            <TextInput
+              style={[styles.input, styles.grow]}
+              value={newName}
+              onChangeText={setNewName}
+              placeholder="New room name"
+              accessibilityLabel="New room name"
+              onSubmitEditing={add}
+            />
+            <Button label="Add room" onPress={add} />
+          </View>
+          <Pressable
+            style={styles.finish}
+            onPress={confirmFinish}
+            accessibilityRole="button"
+            accessibilityLabel="Finish inspection"
+          >
+            <Text style={styles.finishText}>Finish inspection</Text>
+          </Pressable>
+        </>
+      )}
     </View>
   );
 }
@@ -130,6 +181,9 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 4, paddingVertical: 4 },
   grow: { flex: 1, minHeight: 44, justifyContent: 'center' },
   name: { fontSize: 17 },
+  summary: { fontSize: 15, fontWeight: '600', marginBottom: 8 },
   meta: { fontSize: 13, color: '#666' },
+  finish: { minHeight: 48, borderRadius: 8, backgroundColor: '#137333', alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  finishText: { color: '#fff', fontSize: 17, fontWeight: '600' },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 8, fontSize: 16 },
 });

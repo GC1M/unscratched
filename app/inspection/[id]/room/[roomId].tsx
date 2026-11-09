@@ -3,8 +3,9 @@ import { useCallback, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/Button';
+import { FinishedBanner } from '@/components/FinishedBanner';
 import { getDb } from '@/db/client';
-import { addItem, deleteItem, listItems, listRooms, renameItem } from '@/db/repo';
+import { addItem, deleteItem, getInspection, listItems, listRooms, renameItem } from '@/db/repo';
 import type { Item } from '@/db/types';
 
 const CONDITION_LABEL = { good: 'Good', fair: 'Fair', damaged: 'Damaged' } as const;
@@ -14,6 +15,7 @@ export default function RoomItems() {
   const inspectionId = Number(params.id);
   const roomId = Number(params.roomId);
   const [roomName, setRoomName] = useState('');
+  const [finishedAt, setFinishedAt] = useState<number | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [editing, setEditing] = useState<{ id: number; name: string } | null>(null);
   const [newName, setNewName] = useState('');
@@ -24,6 +26,7 @@ export default function RoomItems() {
     const rooms = await listRooms(db, inspectionId);
     setRoomName(rooms.find((r) => r.id === roomId)?.name ?? '');
     setItems(await listItems(db, roomId));
+    setFinishedAt((await getInspection(db, inspectionId))?.finished_at ?? null);
   }, [inspectionId, roomId]);
 
   useFocusEffect(
@@ -57,9 +60,12 @@ export default function RoomItems() {
       { text: 'Delete', style: 'destructive', onPress: () => run((db) => deleteItem(db, item.id)) },
     ]);
 
+  const locked = finishedAt != null;
+
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: roomName }} />
+      {locked && <FinishedBanner finishedAt={finishedAt} />}
       <FlatList
         data={items}
         keyExtractor={(i) => String(i.id)}
@@ -87,27 +93,33 @@ export default function RoomItems() {
                 <Text style={styles.name}>{item.name}</Text>
                 <Text style={styles.meta}>{item.condition ? CONDITION_LABEL[item.condition] : 'Not set'}</Text>
               </Pressable>
-              <Button
-                label="Rename"
-                a11y={`Rename ${item.name}`}
-                onPress={() => setEditing({ id: item.id, name: item.name })}
-              />
-              <Button label="Delete" a11y={`Delete ${item.name}`} onPress={() => confirmDelete(item)} />
+              {!locked && (
+                <>
+                  <Button
+                    label="Rename"
+                    a11y={`Rename ${item.name}`}
+                    onPress={() => setEditing({ id: item.id, name: item.name })}
+                  />
+                  <Button label="Delete" a11y={`Delete ${item.name}`} onPress={() => confirmDelete(item)} />
+                </>
+              )}
             </View>
           )
         }
       />
-      <View style={styles.row}>
-        <TextInput
-          style={[styles.input, styles.grow]}
-          value={newName}
-          onChangeText={setNewName}
-          placeholder="New item name"
-          accessibilityLabel="New item name"
-          onSubmitEditing={add}
-        />
-        <Button label="Add item" onPress={add} />
-      </View>
+      {!locked && (
+        <View style={styles.row}>
+          <TextInput
+            style={[styles.input, styles.grow]}
+            value={newName}
+            onChangeText={setNewName}
+            placeholder="New item name"
+            accessibilityLabel="New item name"
+            onSubmitEditing={add}
+          />
+          <Button label="Add item" onPress={add} />
+        </View>
+      )}
     </View>
   );
 }
