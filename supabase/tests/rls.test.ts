@@ -3,9 +3,10 @@
  */
 /// <reference types="node" />
 import { randomBytes } from 'node:crypto';
+import { request } from 'node:http';
 
 // Integration test against a local Supabase (`npx supabase@latest start`), e.g.
-// SUPABASE_TEST_URL=http://127.0.0.1:54321 SUPABASE_TEST_ANON_KEY=<anon key> npm test -- supabase
+// SUPABASE_TEST_URL=http://127.0.0.1:55321 SUPABASE_TEST_ANON_KEY=<anon key> npm test -- supabase
 const URL = process.env.SUPABASE_TEST_URL;
 const KEY = process.env.SUPABASE_TEST_ANON_KEY;
 
@@ -16,8 +17,20 @@ if (!URL || !KEY) {
 const headers = { apikey: KEY ?? '', Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' };
 const hex = () => randomBytes(32).toString('hex');
 
-function rest(path: string, init: RequestInit = {}) {
-  return fetch(`${URL}/rest/v1/${path}`, { ...init, headers: { ...headers, ...init.headers } });
+// jest-expo replaces global fetch with a stub even in the node environment, so talk HTTP directly.
+function rest(path: string, init: { method?: string; body?: string } = {}) {
+  return new Promise<{ status: number; ok: boolean; json: () => Promise<any> }>((resolve, reject) => {
+    const req = request(`${URL}/rest/v1/${path}`, { method: init.method ?? 'GET', headers }, (res) => {
+      let text = '';
+      res.on('data', (chunk) => (text += chunk));
+      res.on('end', () => {
+        const status = res.statusCode ?? 0;
+        resolve({ status, ok: status >= 200 && status < 300, json: async () => JSON.parse(text) });
+      });
+    });
+    req.on('error', reject);
+    req.end(init.body);
+  });
 }
 
 const insert = (sha256: string) => rest('receipts', { method: 'POST', body: JSON.stringify({ sha256 }) });
