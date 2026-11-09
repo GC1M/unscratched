@@ -1,0 +1,43 @@
+# Flow 1: create a move-in inspection, walk 2 rooms, finish, export the PDF.
+# Photo steps are skipped: the simulator has no camera.
+appId: app.unscratched
+name: Move-in to PDF
+---
+- launchApp:
+    clearState: true
+- runFlow:
+    when:
+      visible:
+        id: "onboarding-skip"
+    commands:
+      - tapOn:
+          id: "onboarding-skip"
+- tapOn: "New inspection"
+- tapOn: "12 Elm Street"
+- inputText: "12 Elm Street"
+- pressKey: Enter
+- tapOn: "Start inspection"
+- assertVisible: "Move-in, started .*"
+- assertVisible: "12 Elm Street"
+
+# Keep the walk short: drop all but Hallway and Appliances (5 items each).
+- tapOn: "Edit rooms"
+- runFlow: { file: subflows/delete-room.yaml, env: { ROOM: Kitchen } }
+- runFlow: { file: subflows/delete-room.yaml, env: { ROOM: Bathroom } }
+- runFlow: { file: subflows/delete-room.yaml, env: { ROOM: Bedroom } }
+- runFlow: { file: subflows/delete-room.yaml, env: { ROOM: Living room } }
+- runFlow: { file: subflows/delete-room.yaml, env: { ROOM: Exterior } }
+- tapOn: "Done editing"
+- assertVisible: "Edit rooms"
+
+- runFlow: { file: subflows/walk-room.yaml, env: { ROOM: Hallway, CONDITION: Good } }
+- runFlow: { file: subflows/walk-room.yaml, env: { ROOM: Appliances, CONDITION: Good } }
+
+- tapOn: "Finish inspection"
+- tapOn: "Finish and lock"
+- tapOn: "Export report"
+- tapOn: "Required"
+- inputText: "Alex Renter"
+- pressKey: Enter
+- tapOn: "Export PDF"
+- runFlow: { file: subflows/dismiss-share-sheet.yaml, env: { FILE: Unscratched-move-in- } }

@@ -1,0 +1,10 @@
+# In edit mode on the room list, deletes ${ROOM} and confirms.
+# The red minus sits inside the row's Pressable, so iOS merges it into the row's
+# "Rename ..." element and it has no label of its own. Tap the row's left edge instead.
+appId: app.unscratched
+---
+- tapOn:
+    text: "Rename ${ROOM}"
+    point: "6%,50%"
+- tapOn: "Delete"
+- assertNotVisible: "Rename ${ROOM}"

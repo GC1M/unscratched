@@ -1,0 +1,24 @@
+# Opens ${ROOM} from the room list and marks every item ${CONDITION}, then returns to the room list.
+# The asserts after each navigation make Maestro wait for the new screen before the next tap.
+appId: app.unscratched
+---
+- waitForAnimationToEnd
+- tapOn: "Open ${ROOM}, .*"
+- assertVisible: "0 of 5 items checked"
+- assertVisible:
+    id: "${ROOM}"
+- tapOn: "Continue with .*"
+- assertVisible: "${ROOM}, item 1 of 5"
+- repeat:
+    while:
+      visible: "Next: .*"
+    commands:
+      - tapOn: ${CONDITION}
+      - tapOn: "Next: .*"
+      - waitForAnimationToEnd
+- tapOn: ${CONDITION}
+- tapOn: "Done with ${ROOM}"
+- assertVisible: "5 of 5 items checked"
+- tapOn:
+    id: "BackButton"
+- assertVisible: "Open ${ROOM}, 5 of 5 items.*"
