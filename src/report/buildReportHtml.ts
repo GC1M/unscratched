@@ -7,6 +7,8 @@ export const CONDITION_LABELS: Record<Condition, string> = { good: 'Good', fair:
 
 const BLANK = '<span class="blank"></span>';
 
+// Photo cards are inline blocks, not flex items: WebKit print ignores break-inside on flex items and split a card
+// across pages. The grid's font-size: 0 drops the whitespace between cards.
 const STYLE = `
 @page { margin: 16mm; }
 * { box-sizing: border-box; }
@@ -20,8 +22,9 @@ h2 { font-size: 16pt; margin: 0 0 8pt; }
 table { width: 100%; border-collapse: collapse; margin: 0 0 12pt; page-break-inside: avoid; }
 th, td { border: 1px solid #ccc; padding: 4pt 6pt; text-align: left; vertical-align: top; }
 th { background: #f2f2f2; }
-.grid { display: flex; flex-wrap: wrap; gap: 8pt; }
-.card { width: calc((100% - 16pt) / 3); border: 1px solid #ccc; padding: 4pt; font-size: 9pt; page-break-inside: avoid; break-inside: avoid; }
+.grid { font-size: 0; }
+.card { display: inline-block; vertical-align: top; width: calc((100% - 16pt) / 3); margin: 0 8pt 8pt 0; border: 1px solid #ccc; padding: 4pt; font-size: 9pt; page-break-inside: avoid; break-inside: avoid; }
+.card:nth-child(3n) { margin-right: 0; }
 .card img { display: block; width: 100%; height: auto; }
 .missing { display: flex; align-items: center; justify-content: center; height: 120pt; background: #f2f2f2; color: #666; }
 .hash { font-family: Menlo, Consolas, monospace; }

@@ -74,6 +74,12 @@ test('matches the snapshot', () => {
   expect(buildReportHtml(fixture(), { formatDate })).toMatchSnapshot();
 });
 
+test('photo cards are inline blocks, since WebKit print ignores break-inside on flex items and splits them', () => {
+  const html = buildReportHtml(fixture(), { formatDate });
+  expect(html).toMatch(/\.card \{[^}]*display: inline-block;[^}]*break-inside: avoid;/);
+  expect(html).not.toMatch(/\.grid \{[^}]*display: flex/);
+});
+
 test('the footer carries the "Not legal advice" disclaimer', () => {
   expect(buildReportHtml(fixture(), { formatDate })).toContain('<footer><p>Not legal advice.</p>');
 });
