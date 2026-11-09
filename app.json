@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Unscratched",
+    "slug": "unscratched",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "unscratched",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "app.unscratched"
+    },
+    "android": {
+      "package": "app.unscratched"
+    },
+    "plugins": ["expo-router"]
+  }
+}
