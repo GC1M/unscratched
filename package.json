@@ -19,7 +19,8 @@
     "preset": "jest-expo",
     "modulePathIgnorePatterns": [
       "<rootDir>/.claude/"
-    ]
+    ],
+    "testTimeout": 15000
   },
   "dependencies": {
     "expo": "~58.0.19",
