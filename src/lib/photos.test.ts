@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { insertPhoto } from '@/db/repo';
+import { InspectionLockedError, insertPhoto } from '@/db/repo';
 
 import { capturePhoto } from './photos';
 
@@ -55,7 +55,10 @@ jest.mock('expo-image-manipulator', () => ({
   ImageManipulator: { manipulate: jest.fn() },
 }));
 
-jest.mock('@/db/repo', () => ({ insertPhoto: jest.fn(() => Promise.resolve(42)) }));
+jest.mock('@/db/repo', () => ({
+  InspectionLockedError: jest.requireActual('@/db/repo').InspectionLockedError,
+  insertPhoto: jest.fn(() => Promise.resolve(42)),
+}));
 
 const db = {} as SQLiteDatabase;
 
@@ -130,5 +133,12 @@ test('failure after writing deletes the file and rethrows', async () => {
   source(4032, 3024);
   jest.mocked(insertPhoto).mockRejectedValueOnce(new Error('db down'));
   await expect(capturePhoto(db, 7, 'file:///camera/raw.jpg')).rejects.toThrow('db down');
+  expect(mockFiles.size).toBe(0);
+});
+
+test('finished inspection: the locked insert deletes the file and rethrows InspectionLockedError', async () => {
+  source(4032, 3024);
+  jest.mocked(insertPhoto).mockRejectedValueOnce(new InspectionLockedError());
+  await expect(capturePhoto(db, 7, 'file:///camera/raw.jpg')).rejects.toThrow(InspectionLockedError);
   expect(mockFiles.size).toBe(0);
 });

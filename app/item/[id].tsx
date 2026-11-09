@@ -2,8 +2,9 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-rou
 import { useCallback, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { FinishedBanner } from '@/components/FinishedBanner';
 import { getDb } from '@/db/client';
-import { getItem, listPhotos, setCondition, setNote } from '@/db/repo';
+import { getFinishedAt, getItem, listPhotos, setCondition, setNote } from '@/db/repo';
 import type { Condition, Item, Photo } from '@/db/types';
 
 const CONDITIONS: { value: Condition; label: string }[] = [
@@ -19,14 +20,21 @@ export default function ItemScreen() {
   const [item, setItem] = useState<Item | null>(null);
   const [note, setNoteText] = useState('');
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [finishedAt, setFinishedAt] = useState<number | null>(null);
+  const locked = finishedAt != null;
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
       (async () => {
         const db = await getDb();
-        const [loaded, loadedPhotos] = await Promise.all([getItem(db, itemId), listPhotos(db, itemId)]);
+        const [loaded, loadedPhotos, finished] = await Promise.all([
+          getItem(db, itemId),
+          listPhotos(db, itemId),
+          getFinishedAt(db, 'item', itemId),
+        ]);
         if (!active) return;
+        setFinishedAt(finished);
         setItem(loaded);
         setNoteText(loaded?.note ?? '');
         setPhotos(loadedPhotos);
@@ -38,19 +46,21 @@ export default function ItemScreen() {
   );
 
   async function onChip(value: Condition) {
-    if (!item) return;
+    if (!item || locked) return;
     const next = item.condition === value ? null : value;
     setItem({ ...item, condition: next });
     await setCondition(await getDb(), itemId, next);
   }
 
   async function onNoteBlur() {
+    if (locked) return;
     await setNote(await getDb(), itemId, note.trim() === '' ? null : note);
   }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Stack.Screen options={{ title: item?.name ?? '' }} />
+      {locked && <FinishedBanner finishedAt={finishedAt} />}
 
       <Text style={styles.heading}>Condition</Text>
       <View style={styles.chips} accessibilityRole="radiogroup">
@@ -61,7 +71,8 @@ export default function ItemScreen() {
               key={value}
               accessibilityRole="radio"
               accessibilityLabel={label}
-              accessibilityState={{ selected }}
+              accessibilityState={{ selected, disabled: locked }}
+              disabled={locked}
               onPress={() => onChip(value)}
               style={[styles.chip, selected && styles.chipSelected]}
             >
@@ -79,6 +90,7 @@ export default function ItemScreen() {
         value={note}
         onChangeText={setNoteText}
         onBlur={onNoteBlur}
+        editable={!locked}
         style={styles.note}
       />
 
@@ -88,14 +100,16 @@ export default function ItemScreen() {
           <Image key={p.id} accessibilityLabel={`Photo ${i + 1}`} source={{ uri: p.file_uri }} style={styles.thumb} />
         ))}
       </ScrollView>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Add photo"
-        onPress={() => router.push(`/camera/${itemId}`)}
-        style={styles.button}
-      >
-        <Text style={styles.buttonText}>Add photo</Text>
-      </Pressable>
+      {!locked && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add photo"
+          onPress={() => router.push(`/camera/${itemId}`)}
+          style={styles.button}
+        >
+          <Text style={styles.buttonText}>Add photo</Text>
+        </Pressable>
+      )}
     </ScrollView>
   );
 }

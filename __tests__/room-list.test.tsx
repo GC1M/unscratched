@@ -27,16 +27,12 @@ beforeEach(() => {
     { id: 10, inspection_id: 1, name: 'Kitchen', sort: 0 },
     { id: 11, inspection_id: 1, name: 'Bath', sort: 1 },
   ];
-  r.getInspection.mockResolvedValue({ id: 1, address: '1 Main St' } as never);
+  r.getInspection.mockResolvedValue({ id: 1, address: '1 Main St', finished_at: null } as never);
   r.listRooms.mockImplementation(async () => rooms);
-  r.listItems.mockImplementation(async (_db, roomId) =>
-    roomId === 10
-      ? [
-          { id: 1, room_id: 10, name: 'Walls', condition: 'good', note: null, sort: 0 },
-          { id: 2, room_id: 10, name: 'Floor', condition: null, note: null, sort: 1 },
-        ]
-      : [],
-  );
+  r.listInspectionItems.mockResolvedValue([
+    { id: 1, room_id: 10, name: 'Walls', condition: 'good', note: null, sort: 0 },
+    { id: 2, room_id: 10, name: 'Floor', condition: null, note: null, sort: 1 },
+  ]);
 });
 
 test('lists rooms with item progress', async () => {
@@ -44,6 +40,9 @@ test('lists rooms with item progress', async () => {
   expect(await screen.findByText('Kitchen')).toBeOnTheScreen();
   expect(screen.getByText('1/2 items')).toBeOnTheScreen();
   expect(screen.getByText('0/0 items')).toBeOnTheScreen();
+  expect(screen.getByText('0 of 2 rooms done')).toBeOnTheScreen();
+  expect(r.listInspectionItems).toHaveBeenCalledWith({}, 1);
+  expect(r.listItems).not.toHaveBeenCalled();
 });
 
 test('adding a room shows it in the list', async () => {
@@ -90,4 +89,34 @@ test('rename inline saves the new name', async () => {
   await fireEvent.changeText(screen.getByLabelText('Room name'), 'Galley');
   await fireEvent.press(screen.getByLabelText('Save'));
   expect(r.renameRoom).toHaveBeenCalledWith({}, 10, 'Galley');
+});
+
+test('Finish asks for confirmation, calls finishInspection, then hides edit controls', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
+    buttons?.find((b) => b.text === 'Finish')?.onPress?.();
+  });
+  const finishedAt = new Date(2026, 0, 20).getTime();
+  r.finishInspection.mockImplementation(async () => {
+    r.getInspection.mockResolvedValue({ id: 1, address: '1 Main St', finished_at: finishedAt } as never);
+  });
+  await render(<RoomList />);
+  await screen.findByText('Kitchen');
+  await fireEvent.press(screen.getByRole('button', { name: 'Finish inspection' }));
+  expect(alert).toHaveBeenCalledWith('Finish inspection?', expect.stringContaining("can't be edited"), expect.any(Array));
+  expect(r.finishInspection).toHaveBeenCalledWith({}, 1);
+  expect(await screen.findByText(`Finished ${new Date(finishedAt).toLocaleDateString()}`)).toBeOnTheScreen();
+  for (const label of ['Finish inspection', 'Add room', 'New room name', 'Rename Kitchen', 'Delete Kitchen', 'Move Bath up']) {
+    expect(screen.queryByLabelText(label)).toBeNull();
+  }
+  expect(screen.getByLabelText('Open Kitchen')).toBeOnTheScreen();
+});
+
+test('cancelling the Finish confirmation does not finish', async () => {
+  jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
+    buttons?.find((b) => b.style === 'cancel')?.onPress?.();
+  });
+  await render(<RoomList />);
+  await screen.findByText('Kitchen');
+  await fireEvent.press(screen.getByRole('button', { name: 'Finish inspection' }));
+  expect(r.finishInspection).not.toHaveBeenCalled();
 });

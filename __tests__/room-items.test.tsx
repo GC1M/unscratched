@@ -67,3 +67,13 @@ test('add, rename, and delete items', async () => {
   expect(r.deleteItem).toHaveBeenCalledWith({}, 2);
   expect(screen.queryByText('Floor')).toBeNull();
 });
+
+test('finished inspection hides add, rename, and delete', async () => {
+  r.getInspection.mockResolvedValue({ id: 1, finished_at: 5 } as never);
+  await render(<RoomItems />);
+  expect(await screen.findByText(`Finished ${new Date(5).toLocaleDateString()}`)).toBeOnTheScreen();
+  for (const label of ['Add item', 'New item name', 'Rename Walls', 'Delete Walls']) {
+    expect(screen.queryByLabelText(label)).toBeNull();
+  }
+  expect(screen.getByLabelText('Open Walls')).toBeOnTheScreen();
+});

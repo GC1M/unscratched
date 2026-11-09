@@ -3,20 +3,32 @@ import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { getDb } from '@/db/client';
-import { listInspections } from '@/db/repo';
+import { listInspectionItems, listInspections, listRooms } from '@/db/repo';
 import type { Inspection } from '@/db/types';
+import { progress, type Progress } from '@/lib/progress';
+
+type Row = Inspection & { progress: Progress | null };
 
 export default function Home() {
-  const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [inspections, setInspections] = useState<Row[]>([]);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      getDb()
-        .then(listInspections)
-        .then((rows) => {
-          if (active) setInspections(rows);
-        });
+      (async () => {
+        const db = await getDb();
+        // ponytail: two queries per unfinished inspection; fine for a renter's handful of inspections.
+        const rows = await Promise.all(
+          (await listInspections(db)).map(async (i) => ({
+            ...i,
+            progress:
+              i.finished_at == null
+                ? progress(await listRooms(db, i.id), await listInspectionItems(db, i.id))
+                : null,
+          })),
+        );
+        if (active) setInspections(rows);
+      })();
       return () => {
         active = false;
       };
@@ -57,7 +69,13 @@ export default function Home() {
                   {kind} · {started}
                 </Text>
               </View>
-              {item.finished_at != null && <Text style={styles.badge}>Finished</Text>}
+              {item.progress ? (
+                <Text style={styles.meta}>
+                  {item.progress.roomsDone}/{item.progress.roomsTotal} rooms
+                </Text>
+              ) : (
+                <Text style={styles.badge}>Finished</Text>
+              )}
             </Pressable>
           );
         }}
