@@ -152,3 +152,15 @@ test('Start move-out shows only for a finished move-in and opens the new inspect
   expect(r.copyFromMoveIn).toHaveBeenCalledWith({}, 1);
   expect(router.push).toHaveBeenCalledWith('/inspection/7');
 });
+
+test('Start move-out failure shows an alert instead of navigating', async () => {
+  const { router } = jest.requireMock('expo-router');
+  router.push.mockClear();
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  r.copyFromMoveIn.mockRejectedValue(new Error('Only a finished move-in can start a move-out.'));
+  r.getInspection.mockResolvedValue({ id: 1, address: '1 Main St', kind: 'move_in', finished_at: 5 } as never);
+  await render(<RoomList />);
+  await fireEvent.press(await screen.findByLabelText('Start move-out'));
+  expect(alert).toHaveBeenCalledWith('Could not start move-out', 'Only a finished move-in can start a move-out.');
+  expect(router.push).not.toHaveBeenCalled();
+});

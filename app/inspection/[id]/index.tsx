@@ -88,9 +88,18 @@ export default function RoomList() {
       ],
     );
 
+  const [starting, setStarting] = useState(false);
   const startMoveOut = async () => {
-    const id = await copyFromMoveIn(await getDb(), inspectionId);
-    router.push(`/inspection/${id}`);
+    if (starting) return;
+    setStarting(true);
+    try {
+      const id = await copyFromMoveIn(await getDb(), inspectionId);
+      router.push(`/inspection/${id}`);
+    } catch (e) {
+      Alert.alert('Could not start move-out', e instanceof Error ? e.message : String(e));
+    } finally {
+      setStarting(false);
+    }
   };
 
   const locked = finishedAt != null;
@@ -171,8 +180,10 @@ export default function RoomList() {
         <Pressable
           style={styles.finish}
           onPress={startMoveOut}
+          disabled={starting}
           accessibilityRole="button"
           accessibilityLabel="Start move-out"
+          accessibilityState={{ disabled: starting, busy: starting }}
         >
           <Text style={styles.finishText}>Start move-out</Text>
         </Pressable>
