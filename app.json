@@ -23,7 +23,8 @@
           "recordAudioAndroid": false
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-notifications"
     ]
   }
 }
