@@ -35,3 +35,6 @@ coverage/
 # Local-only planning
 notes/
 PLAN.md
+
+# Verify page config (holds the Supabase URL and anon key)
+web/verify/config.js
