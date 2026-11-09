@@ -73,6 +73,9 @@ const fixture = (): Comparison => ({
   thumbnails: { 1: 'data:image/jpeg;base64,AAA', 2: 'data:image/jpeg;base64,BBB', 4: 'data:image/jpeg;base64,DDD', 5: 'data:image/jpeg;base64,EEE' },
   worsenedCount: 1,
   generatedAt: Date.UTC(2027, 0, 3, 9),
+  receipts: { [photo(1).sha256]: Date.UTC(2026, 0, 2, 12), [photo(2).sha256]: Date.UTC(2027, 0, 2, 12) },
+  moveInCode: null,
+  moveOutCode: 'abcdef012345',
 });
 
 test('snapshot of the full comparison document', () => {
@@ -124,6 +127,18 @@ test('escapes user text on the cover, in room and item names, and in img alt', (
   expect(html).toContain('<h2>&lt;script&gt;alert(1)&lt;/script&gt;</h2>');
   expect(html).toContain('alt="&quot; onerror=&quot;alert(1) - move-in"');
   expect(buildComparisonHtml(c, { formatDate })).toMatchSnapshot();
+});
+
+test('photo cards show the server time or "Receipt pending"; the cover shows each side\'s verification', () => {
+  const c = fixture();
+  const html = buildComparisonHtml(c, { formatDate });
+  expect(html).toContain(`Server time: ${formatDate(Date.UTC(2026, 0, 2, 12))}`);
+  expect(html).toContain(`Server time: ${formatDate(Date.UTC(2027, 0, 2, 12))}`);
+  expect(html.match(/Receipt pending/g)).toHaveLength(3); // photos 3, 4, 5
+  expect(html).toContain('<dt>Move-in verification</dt><dd>Verification pending</dd>');
+  expect(html).toContain('<dt>Move-out verification</dt><dd>Verification code: abcdef012345<br>unscratched.app/v/abcdef012345</dd>');
+  c.rooms = [];
+  expect(buildComparisonHtml(c, { formatDate })).not.toContain('verification');
 });
 
 test('the default formatter produces a date string', () => {

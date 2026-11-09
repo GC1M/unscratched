@@ -31,6 +31,8 @@ const data = (inspection: Inspection, rooms: ReportRoom[], thumbnails: Record<nu
   thumbnails,
   acknowledgement: null,
   generatedAt: 42,
+  receipts: {},
+  verificationCode: null,
 });
 
 const changes = (moveIn: ReportRoom[], moveOut: ReportRoom[]) =>

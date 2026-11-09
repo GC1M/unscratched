@@ -1,6 +1,8 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
+import { syncReceipts } from '@/receipts/queue';
+
 import { buildComparisonHtml } from './buildComparisonHtml';
 import { buildComparison } from './comparison';
 import { comparisonFileName, exportComparison } from './exportComparison';
@@ -24,6 +26,7 @@ jest.mock('expo-file-system', () => {
 jest.mock('expo-print', () => ({ printToFileAsync: jest.fn() }));
 jest.mock('expo-sharing', () => ({ isAvailableAsync: jest.fn(), shareAsync: jest.fn() }));
 jest.mock('./loadReport', () => ({ loadReportData: jest.fn() }));
+jest.mock('@/receipts/queue', () => ({ syncReceipts: jest.fn(async () => {}) }));
 jest.mock('./comparison', () => ({ buildComparison: jest.fn() }));
 jest.mock('./buildComparisonHtml', () => ({ buildComparisonHtml: jest.fn() }));
 
@@ -76,4 +79,12 @@ test('throws when the move-out is not linked to a move-in', async () => {
 test('file name is Unscratched-comparison-<slug>-<yyyy-mm-dd>.pdf', () => {
   expect(comparisonFileName('12 Main St', new Date(2026, 10, 9).getTime())).toBe('Unscratched-comparison-12-main-st-2026-11-09.pdf');
   expect(comparisonFileName('***', new Date(2026, 10, 9).getTime())).toBe('Unscratched-comparison-report-2026-11-09.pdf');
+});
+
+test('syncs receipts before loading the report data', async () => {
+  await exportComparison(db, 7);
+  expect(syncReceipts).toHaveBeenCalledWith(db);
+  expect(jest.mocked(syncReceipts).mock.invocationCallOrder[0]).toBeLessThan(
+    jest.mocked(loadReportData).mock.invocationCallOrder[0],
+  );
 });

@@ -30,13 +30,22 @@ th { background: #f2f2f2; }
 footer { margin-top: 24pt; font-size: 8pt; color: #666; }
 `;
 
+/** Server time from the receipt, or "Receipt pending" until the hash has one. */
+export const receiptLine = (receipts: Record<string, number>, sha256: string, fmt: (ms: number) => string) =>
+  sha256 in receipts ? `Server time: ${fmt(receipts[sha256])}` : 'Receipt pending';
+
+/** Cover row value: the code and its verify URL, or "Verification pending". Codes are hex, so no escaping needed. */
+export const verificationText = (code: string | null) =>
+  code ? `Verification code: ${code}<br>unscratched.app/v/${code}` : 'Verification pending';
+
 export const defaultFormatDate = (ms: number) =>
   new Date(ms).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 /** Pure: report data in, a complete print-ready HTML document out. Every user string goes through escapeHtml. */
 export function buildReportHtml(data: ReportData, opts?: { formatDate?: (ms: number) => string }): string {
   const fmt = opts?.formatDate ?? defaultFormatDate;
-  const { inspection, rooms, thumbnails, acknowledgement, generatedAt } = data;
+  const { inspection, rooms, thumbnails, acknowledgement, generatedAt, receipts, verificationCode } = data;
+  const hasPhotos = rooms.some((r) => r.items.some((i) => i.photos.length));
   const title = inspection.kind === 'move_in' ? 'Move-in inspection report' : 'Move-out inspection report';
   const row = (label: string, value: string) => `<dt>${label}</dt><dd>${value}</dd>`;
 
@@ -50,6 +59,7 @@ ${row('Finished', inspection.finished_at != null ? fmt(inspection.finished_at) :
 ${inspection.tenant_name ? row('Tenant', escapeHtml(inspection.tenant_name)) : ''}
 ${inspection.landlord_name ? row('Landlord or manager', escapeHtml(inspection.landlord_name)) : ''}
 ${row('Generated', fmt(generatedAt))}
+${hasPhotos ? row('Verification', verificationText(verificationCode)) : ''}
 </dl>
 <p>Photos were taken in the Unscratched app. Each photo's SHA-256 fingerprint is listed so the files can be checked later.</p>
 </section>`;
@@ -69,7 +79,7 @@ ${row('Generated', fmt(generatedAt))}
         const image = src
           ? `<img src="${escapeHtml(src)}" alt="${caption}">`
           : '<div class="missing">Photo unavailable</div>';
-        return `<div class="card">${image}<div>${caption}</div><div>${fmt(photo.captured_at)}</div><div class="hash">SHA-256: ${escapeHtml(photo.sha256.slice(0, 12))}</div></div>`;
+        return `<div class="card">${image}<div>${caption}</div><div>${fmt(photo.captured_at)}</div><div>${receiptLine(receipts, photo.sha256, fmt)}</div><div class="hash">SHA-256: ${escapeHtml(photo.sha256.slice(0, 12))}</div></div>`;
       }),
     );
     return `<section class="room">

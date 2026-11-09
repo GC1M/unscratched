@@ -1,6 +1,8 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
+import { syncReceipts } from '@/receipts/queue';
+
 import { buildReportHtml } from './buildReportHtml';
 import { exportReport, reportFileName } from './export';
 import { loadReportData } from './loadReport';
@@ -23,6 +25,7 @@ jest.mock('expo-file-system', () => {
 jest.mock('expo-print', () => ({ printToFileAsync: jest.fn() }));
 jest.mock('expo-sharing', () => ({ isAvailableAsync: jest.fn(), shareAsync: jest.fn() }));
 jest.mock('./loadReport', () => ({ loadReportData: jest.fn() }));
+jest.mock('@/receipts/queue', () => ({ syncReceipts: jest.fn(async () => {}) }));
 jest.mock('./buildReportHtml', () => ({ buildReportHtml: jest.fn() }));
 
 const db = {} as never;
@@ -69,4 +72,12 @@ test('file name slug keeps only safe characters', () => {
   const at = new Date(2026, 10, 9).getTime();
   expect(reportFileName('move_out', '  ../Ünit 5/"x"  ', at)).toBe('Unscratched-move-out-nit-5-x-2026-11-09.pdf');
   expect(reportFileName('move_in', '***', at)).toBe('Unscratched-move-in-report-2026-11-09.pdf');
+});
+
+test('syncs receipts before loading the report data', async () => {
+  await exportReport(db, 7, ack);
+  expect(syncReceipts).toHaveBeenCalledWith(db);
+  expect(jest.mocked(syncReceipts).mock.invocationCallOrder[0]).toBeLessThan(
+    jest.mocked(loadReportData).mock.invocationCallOrder[0],
+  );
 });

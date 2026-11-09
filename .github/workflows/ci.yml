@@ -30,3 +30,36 @@ jobs:
       - run: npm test
       - name: Bundle for iOS
         run: npx expo export --platform ios --output-dir /tmp/export-ios
+
+  # RLS and edge function tests against a real local Supabase. They skip in `check` because it has no database.
+  supabase:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: npm ci
+      - name: Start Supabase (database, API gateway, REST, edge runtime only)
+        run: supabase start -x gotrue,realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,logflare,vector,supavisor
+      - name: Serve edge functions
+        run: |
+          supabase functions serve --no-verify-jwt > /tmp/functions.log 2>&1 &
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X OPTIONS http://127.0.0.1:55321/functions/v1/issue-receipts || true)
+            [ "$code" = "200" ] || [ "$code" = "204" ] && exit 0
+            sleep 2
+          done
+          cat /tmp/functions.log
+          exit 1
+      - name: Integration tests
+        run: |
+          eval "$(supabase status -o env | grep -E '^(API_URL|ANON_KEY)=')"
+          SUPABASE_TEST_URL=$API_URL SUPABASE_TEST_ANON_KEY=$ANON_KEY \
+          SUPABASE_URL=$API_URL SUPABASE_ANON_KEY=$ANON_KEY \
+            npx jest supabase/ --ci
