@@ -6,7 +6,7 @@ import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, Text, View } 
 import { Button } from '@/components/Button';
 import { Problem, errorMessage } from '@/components/Status';
 import { getDb } from '@/db/client';
-import { getFinishedAt } from '@/db/repo';
+import { getFinishedAt, getItem } from '@/db/repo';
 import { capturePhoto } from '@/lib/photos';
 import { useTheme } from '@/theme';
 
@@ -17,12 +17,19 @@ export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const camera = useRef<CameraView>(null);
   const [saving, setSaving] = useState(false);
-  // undefined while checking; a finished inspection (e.g. reached by a crafted deep link) gets no shutter.
-  const [locked, setLocked] = useState<boolean>();
-  const [error, setError] = useState<unknown>(null);
+  // A missing item or a finished inspection (e.g. reached by a crafted deep link) gets a message, not a shutter.
+  const [checked, setChecked] = useState(false);
+  const [refusal, setRefusal] = useState<{ title: string; body: string } | null>(null);
 
   useEffect(() => {
-    (async () => setLocked((await getFinishedAt(await getDb(), 'item', Number(itemId))) != null))().catch(setError);
+    (async () => {
+      const db = await getDb();
+      const id = Number(itemId);
+      const [item, finishedAt] = await Promise.all([getItem(db, id), getFinishedAt(db, 'item', id)]);
+      if (!item) setRefusal({ title: 'Item not found', body: 'It may have been deleted.' });
+      else if (finishedAt != null) setRefusal({ title: 'This inspection is finished', body: 'Photos are locked so the report can be trusted.' });
+      setChecked(true);
+    })().catch((e: unknown) => setRefusal({ title: 'Could not open the camera', body: errorMessage(e) }));
   }, [itemId]);
 
   async function onShutter() {
@@ -39,17 +46,13 @@ export default function CameraScreen() {
   }
 
   let body;
-  if (error || locked) {
+  if (refusal) {
     body = (
       <View style={[styles.center, styles.message, { backgroundColor: c.plaster }]}>
-        {error ? (
-          <Problem title="Could not open the camera" body={errorMessage(error)} />
-        ) : (
-          <Problem title="This inspection is finished" body="Photos are locked so the report can be trusted." />
-        )}
+        <Problem title={refusal.title} body={refusal.body} />
       </View>
     );
-  } else if (!permission || locked === undefined) {
+  } else if (!permission || !checked) {
     body = <ActivityIndicator style={[styles.center, { backgroundColor: c.plaster }]} />;
   } else if (!permission.granted) {
     const canAsk = permission.canAskAgain;

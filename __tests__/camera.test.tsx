@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { useCameraPermissions } from 'expo-camera';
 import { Linking } from 'react-native';
 
-import { getFinishedAt } from '@/db/repo';
+import { getFinishedAt, getItem } from '@/db/repo';
 
 import CameraScreen from '../app/camera/[itemId]';
 
@@ -16,7 +16,7 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('@/db/client', () => ({ getDb: jest.fn() }));
 jest.mock('@/lib/photos', () => ({ capturePhoto: jest.fn() }));
-jest.mock('@/db/repo', () => ({ getFinishedAt: jest.fn() }));
+jest.mock('@/db/repo', () => ({ getFinishedAt: jest.fn(), getItem: jest.fn() }));
 
 function permission(granted: boolean, canAskAgain: boolean) {
   jest
@@ -27,6 +27,7 @@ function permission(granted: boolean, canAskAgain: boolean) {
 beforeEach(() => {
   jest.clearAllMocks();
   jest.mocked(getFinishedAt).mockResolvedValue(null);
+  jest.mocked(getItem).mockResolvedValue({ id: 7 } as never);
 });
 
 test('permanently denied shows Open Settings, which opens app settings', async () => {
@@ -65,5 +66,13 @@ test('a finished inspection shows a locked message and no shutter or permission 
   permission(false, true);
   await render(<CameraScreen />);
   expect(await screen.findByText('This inspection is finished')).toBeOnTheScreen();
+  expect(screen.queryByRole('button')).toBeNull();
+});
+
+test('a missing item shows not found and no shutter', async () => {
+  permission(true, true);
+  jest.mocked(getItem).mockResolvedValue(null);
+  await render(<CameraScreen />);
+  expect(await screen.findByText('Item not found')).toBeOnTheScreen();
   expect(screen.queryByRole('button')).toBeNull();
 });
