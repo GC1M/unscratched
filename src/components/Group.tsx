@@ -41,17 +41,23 @@ export function Row({ children, leading, trailing, first, onPress, a11y, selecte
   const { c } = useTheme();
   const { fontScale } = useWindowDimensions();
   const split = !!onPress && (controlsBefore != null || controlsAfter != null);
+  // At accessibility sizes the trailing accessory (a tag, a count), the chevron, and the edit controls beside the
+  // title left too little width for one long word ("Refrigerator"), which iOS broke mid-word. Move them under it.
+  const large = fontScale > 1.4;
+  const stacked = trailing != null && large;
   const divider = !first && <View style={[styles.divider, { backgroundColor: c.hair, left: leading || controlsBefore ? 44 : 16 }]} />;
   const inner = (
     <>
       {!split && divider}
       {leading}
-      <View style={styles.main}>{children}</View>
+      <View style={styles.main}>
+        {children}
+        {stacked && <View style={styles.trailingStacked}>{trailing}</View>}
+      </View>
       {trailing != null ? (
-        // At accessibility sizes a wide accessory (a tag, a count) squeezed the title to one letter per line; cap it.
-        <View style={fontScale > 1.4 && styles.trailingLarge}>{trailing}</View>
+        !stacked && trailing
       ) : (
-        onPress && <View style={[styles.chevron, { borderColor: c.ink30 }]} />
+        onPress && !large && <View style={[styles.chevron, { borderColor: c.ink30 }]} />
       )}
     </>
   );
@@ -69,11 +75,18 @@ export function Row({ children, leading, trailing, first, onPress, a11y, selecte
   );
   if (!split) return button;
   return (
-    <View style={styles.split}>
+    <View style={[styles.split, large && styles.splitWrap]}>
       {divider}
-      {controlsBefore}
+      {!large && controlsBefore}
       {button}
-      {controlsAfter}
+      {large ? (
+        <View style={styles.controlsBelow}>
+          {controlsBefore ?? <View />}
+          {controlsAfter}
+        </View>
+      ) : (
+        controlsAfter
+      )}
     </View>
   );
 }
@@ -93,10 +106,12 @@ const styles = StyleSheet.create({
   section: { fontSize: 13, paddingTop: 22, paddingBottom: 8, paddingHorizontal: 4 },
   row: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10 },
   split: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 },
+  splitWrap: { flexWrap: 'wrap' },
+  controlsBelow: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 6 },
   splitButton: { flex: 1, alignSelf: 'stretch', paddingHorizontal: 12 },
   divider: { position: 'absolute', top: 0, right: 0, height: StyleSheet.hairlineWidth },
   main: { flex: 1, minWidth: 0 },
-  trailingLarge: { flexShrink: 1, maxWidth: '40%' },
+  trailingStacked: { alignSelf: 'flex-start', marginTop: 4 },
   chevron: { width: 8, height: 8, borderRightWidth: 1.5, borderTopWidth: 1.5, transform: [{ rotate: '45deg' }], marginLeft: 4 },
   title: { fontSize: 17 },
   titleSerif: { fontSize: 19, fontFamily: 'Newsreader_400Regular' },

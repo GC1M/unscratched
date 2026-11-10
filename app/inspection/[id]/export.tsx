@@ -6,7 +6,7 @@ import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { SectionLabel } from '@/components/Group';
 import { Screen } from '@/components/Screen';
-import { errorMessage } from '@/components/Status';
+import { Loading, Problem, errorMessage } from '@/components/Status';
 import { getDb } from '@/db/client';
 import { getInspection } from '@/db/repo';
 import { exportReport } from '@/report/export';
@@ -23,13 +23,19 @@ export default function ExportReport() {
   const [landlord, setLandlord] = useState('');
   const [busy, setBusy] = useState(false);
   const [zipBusy, setZipBusy] = useState(false);
+  // Set when the inspection is missing or not finished (e.g. a crafted deep link): show why, not the form.
+  const [refusal, setRefusal] = useState<{ title: string; body: string } | null>(null);
 
   useEffect(() => {
     (async () => {
       const inspection = await getInspection(await getDb(), inspectionId);
-      setDate(inspection?.finished_at ?? Date.now());
-      setTenant(inspection?.tenant_name ?? '');
-      setLandlord(inspection?.landlord_name ?? '');
+      if (!inspection) return setRefusal({ title: 'Inspection not found', body: 'It may have been deleted.' });
+      if (inspection.finished_at == null) {
+        return setRefusal({ title: 'Not finished yet', body: 'Finish and lock this inspection before exporting its report.' });
+      }
+      setDate(inspection.finished_at);
+      setTenant(inspection.tenant_name ?? '');
+      setLandlord(inspection.landlord_name ?? '');
     })().catch((e: unknown) => Alert.alert('Could not load inspection', errorMessage(e)));
   }, [inspectionId]);
 
@@ -64,16 +70,23 @@ export default function ExportReport() {
     }
   };
 
+  const header = <Stack.Screen options={{ title: 'Export report', headerLargeTitleStyle: { fontSize: 34, color: c.ink } }} />;
+  if (refusal || date == null)
+    return (
+      <>
+        {header}
+        <Screen>{refusal ? <Problem title={refusal.title} body={refusal.body} /> : <Loading />}</Screen>
+      </>
+    );
+
   return (
     <>
-      <Stack.Screen options={{ title: 'Export report', headerLargeTitleStyle: { fontSize: 34, color: c.ink } }} />
+      {header}
       <Screen>
-        {date != null && (
-          <Text style={[styles.statement, { color: c.ink }]}>
-            I confirm this report reflects the unit&apos;s condition on{' '}
-            {new Date(date).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}.
-          </Text>
-        )}
+        <Text style={[styles.statement, { color: c.ink }]}>
+          I confirm this report reflects the unit&apos;s condition on{' '}
+          {new Date(date).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}.
+        </Text>
         <SectionLabel>Tenant typed name</SectionLabel>
         <Field signature value={tenant} onChangeText={setTenant} accessibilityLabel="Tenant typed name" placeholder="Required" />
         <SectionLabel>Landlord or manager typed name</SectionLabel>

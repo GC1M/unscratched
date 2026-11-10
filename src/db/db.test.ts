@@ -390,6 +390,17 @@ describe('repo', () => {
       expect(count(raw, 'photo')).toBe(1);
     });
 
+    test('a second start returns the existing move-out instead of creating another', async () => {
+      const { raw, db, insp } = await moveIn();
+      const out = await repo.copyFromMoveIn(db, insp);
+      await repo.setCondition(db, (await repo.listInspectionItems(db, out))[0].id, 'good');
+
+      expect(await repo.copyFromMoveIn(db, insp)).toBe(out);
+      expect(count(raw, 'inspection')).toBe(2);
+      expect(count(raw, 'room')).toBe(4);
+      expect((await repo.listInspectionItems(db, out))[0].condition).toBe('good');
+    });
+
     test('throws for an unfinished move-in and creates nothing', async () => {
       const { raw, db, insp } = await moveIn(false);
       await expect(repo.copyFromMoveIn(db, insp)).rejects.toThrow('finished move-in');

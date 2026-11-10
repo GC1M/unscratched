@@ -1,7 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { StyleSheet, Text } from 'react-native';
 
 import { Button } from '@/components/Button';
+import { Row, RowTitle } from '@/components/Group';
 import { Screen } from '@/components/Screen';
 
 jest.mock('@/db/client', () => ({ getDb: jest.fn(async () => ({})) }));
@@ -44,5 +45,32 @@ describe('Button trailing text', () => {
     await render(<Button label="Continue inspection" trailing="Hallway next" onPress={() => {}} />);
     expect(direction()).toBe('column');
     expect(screen.getByText('Hallway next')).toBeOnTheScreen();
+  });
+});
+
+describe('Row trailing accessory', () => {
+  // The title's column: the nearest ancestor of the title that flexes to fill the row.
+  const titleColumn = () => {
+    let el = screen.getByText('Appliances').parent;
+    while (el && StyleSheet.flatten(el.props.style)?.flex !== 1) el = el.parent;
+    return el!;
+  };
+  const row = (
+    <Row onPress={() => {}} trailing={<Text>3 of 5</Text>}>
+      <RowTitle>Appliances</RowTitle>
+    </Row>
+  );
+
+  test('sits beside the title at default text sizes', async () => {
+    mockFontScale = 1;
+    await render(row);
+    expect(within(titleColumn()).queryByText('3 of 5')).toBeNull();
+    expect(screen.getByText('3 of 5')).toBeOnTheScreen();
+  });
+
+  test('stacks under the title at accessibility sizes, so a long word is not broken mid-word', async () => {
+    mockFontScale = 3.1;
+    await render(row);
+    expect(within(titleColumn()).getByText('3 of 5')).toBeOnTheScreen();
   });
 });

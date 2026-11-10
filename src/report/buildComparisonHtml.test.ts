@@ -113,6 +113,15 @@ test('cover, photo pairs, and footer', () => {
   expect(html).toContain('Made with Unscratched (free)');
 });
 
+test('each item heading shares an unbreakable block with its first photo pair, so it cannot end a page alone', () => {
+  const html = buildComparisonHtml(fixture(), { formatDate });
+  expect(html).toMatch(/\.item \{[^}]*break-inside: avoid;/);
+  expect(html).not.toMatch(/\.item \{[^}]*display: flex/);
+  // Oven: heading plus its first pair inside the block, its second pair after it.
+  expect(html).toMatch(/<div class="item"><h3>Oven \(Worse\)<\/h3>\n<div class="pair">.*?<\/div><\/div><\/div>\n<div class="pair">/);
+  expect(html.match(/<h3>/g)).toHaveLength(html.match(/<div class="item"><h3>/g)!.length);
+});
+
 test('escapes user text on the cover, in room and item names, and in img alt', () => {
   const c = fixture();
   c.moveOut = { ...c.moveOut, address: '<b>12 Elm</b>', unit: '"&' };

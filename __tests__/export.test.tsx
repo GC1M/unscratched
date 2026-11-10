@@ -71,3 +71,14 @@ test('the zip button shares photos without needing the tenant name, and alerts o
   await fireEvent.press(zip);
   expect(alert).toHaveBeenCalledWith('Photo export failed', 'This inspection has no photos to export.');
 });
+
+test.each([
+  [{ id: 1, address: '1 Main St', finished_at: null, tenant_name: 'Ana', landlord_name: null }, 'Not finished yet'],
+  [null, 'Inspection not found'],
+])('refuses an unfinished or missing inspection with no export buttons', async (inspection, title) => {
+  jest.mocked(repo.getInspection).mockResolvedValue(inspection as never);
+  await render(<ExportReport />);
+  expect(await screen.findByText(title)).toBeOnTheScreen();
+  expect(screen.queryByRole('button')).toBeNull();
+  expect(screen.queryByLabelText('Tenant typed name')).toBeNull();
+});
