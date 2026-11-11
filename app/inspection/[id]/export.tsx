@@ -26,6 +26,7 @@ export default function ExportReport() {
   const [tenant, setTenant] = useState('');
   const [landlord, setLandlord] = useState('');
   const [signature, setSignature] = useState<string | null>(null);
+  const [drawing, setDrawing] = useState(false);
   const [portal, setPortal] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sending, setSending] = useState(false);
@@ -115,7 +116,11 @@ export default function ExportReport() {
     }
   };
 
-  const header = <Stack.Screen options={{ title: t('common.exportReport'), headerLargeTitleStyle: { fontSize: 34, color: c.ink } }} />;
+  // No swipe back here: iOS starts its back swipe natively, before the signature pad can claim a rightward stroke.
+  // The back button still works.
+  const header = (
+    <Stack.Screen options={{ title: t('common.exportReport'), headerLargeTitleStyle: { fontSize: 34, color: c.ink }, gestureEnabled: false }} />
+  );
   if (refusal || date == null)
     return (
       <>
@@ -127,14 +132,14 @@ export default function ExportReport() {
   return (
     <>
       {header}
-      <Screen>
+      <Screen scrollEnabled={!drawing}>
         <Text style={[styles.statement, { color: c.ink }]}>
           {t('export.statement', { date: new Date(date).toLocaleDateString(locale, { month: 'long', day: 'numeric', year: 'numeric' }) })}
         </Text>
         <SectionLabel>{t('export.tenantName')}</SectionLabel>
         <Field signature value={tenant} onChangeText={setTenant} accessibilityLabel={t('export.tenantName')} placeholder={t('export.required')} />
         <SectionLabel>{t('export.signature')}</SectionLabel>
-        <SignaturePad onDone={setSignature} />
+        <SignaturePad onDone={setSignature} onDrawing={setDrawing} />
         <SectionLabel>{t('export.landlordName')}</SectionLabel>
         <Field signature value={landlord} onChangeText={setLandlord} accessibilityLabel={t('export.landlordName')} placeholder={t('common.optional')} />
         <Button label={t(busy ? 'export.buildingPdf' : 'export.exportPdf')} a11y={t('export.exportPdf')} onPress={submit} disabled={disabled} busy={busy} style={styles.button} />
