@@ -44,6 +44,7 @@ const fixture = (): Comparison => ({
     landlord_name: null,
     linked_move_in_id: null,
     move_out_date: null,
+    state: null,
   },
   moveOut: {
     id: 2,
@@ -55,7 +56,8 @@ const fixture = (): Comparison => ({
     tenant_name: null,
     landlord_name: null,
     linked_move_in_id: 1,
-    move_out_date: null,
+    move_out_date: new Date(2027, 0, 2).getTime(),
+    state: 'CA',
   },
   rooms: [
     {
@@ -148,6 +150,19 @@ test('photo cards show the server time or "Receipt pending"; the cover shows eac
   expect(html).toContain('<dt>Move-out verification</dt><dd>Verification code: abcdef012345<br>unscratched.app/v/abcdef012345</dd>');
   c.rooms = [];
   expect(buildComparisonHtml(c, { formatDate })).not.toContain('verification');
+});
+
+test('the cover cites the move-out state deposit deadline with its due date, or nothing without a known state', () => {
+  const c = fixture();
+  expect(buildComparisonHtml(c, { formatDate })).toContain(
+    '<p class="deposit">In California, landlords generally have 21 days after move-out to return the deposit. Itemized statement and any refund are both due within 21 days. Due around Jan 23, 2027. Source: <a href="https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CIV&amp;sectionNum=1950.5">https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CIV&amp;sectionNum=1950.5</a>. Not legal advice.</p>',
+  );
+  c.moveOut = { ...c.moveOut, move_out_date: null };
+  expect(buildComparisonHtml(c, { formatDate })).not.toContain('Due around');
+  for (const state of [null, 'ZZ']) {
+    c.moveOut = { ...c.moveOut, state };
+    expect(buildComparisonHtml(c, { formatDate })).not.toContain('class="deposit"');
+  }
 });
 
 test('the default formatter produces a date string', () => {

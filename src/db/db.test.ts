@@ -108,6 +108,7 @@ describe('repo', () => {
       landlord_name: null,
       linked_move_in_id: null,
       move_out_date: null,
+      state: null,
     });
     expect((await repo.listInspections(db)).map((i) => i.id)).toEqual([b, a]);
     expect(await repo.getInspection(db, 999)).toBeNull();
@@ -344,6 +345,7 @@ describe('repo', () => {
         tenant_name: 'Tia',
         landlord_name: 'Lou',
         move_out_date: 99,
+        state: 'WA',
       });
       const kitchen = await repo.addRoom(db, insp, 'Kitchen');
       const bath = await repo.addRoom(db, insp, 'Bath');
@@ -387,6 +389,7 @@ describe('repo', () => {
         tenant_name: 'Tia',
         landlord_name: 'Lou',
         move_out_date: 99,
+        state: 'WA',
         finished_at: null,
       });
       expect(await shape(db, out)).toEqual(await shape(db, insp));

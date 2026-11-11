@@ -58,6 +58,8 @@ export const migrations: string[] = [
     value TEXT NOT NULL
   );
   `,
+  // Two-letter US state code for the deposit-return deadline; optional.
+  'ALTER TABLE inspection ADD COLUMN state TEXT;',
 ];
 
 export async function migrate(db: SQLiteDatabase): Promise<void> {

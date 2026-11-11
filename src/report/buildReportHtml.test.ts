@@ -19,6 +19,7 @@ const inspection: Inspection = {
   landlord_name: 'Bob Lee',
   linked_move_in_id: null,
   move_out_date: null,
+  state: null,
 };
 
 const item = (id: number, room_id: number, name: string, condition: Item['condition'], note: string | null = null): Item => ({

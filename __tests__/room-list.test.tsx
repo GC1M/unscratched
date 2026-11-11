@@ -283,3 +283,23 @@ test('a load failure shows the error with a retry; a missing inspection says so'
   await render(<RoomList />);
   expect(await screen.findByText('Inspection not found')).toBeOnTheScreen();
 });
+
+test('a move-out with a known state shows the deposit deadline, due date and source; a move-in does not', async () => {
+  const moveOutDate = new Date(2027, 5, 30).getTime();
+  r.getInspection.mockResolvedValue({ ...base, kind: 'move_in', finished_at: null, state: 'WA', move_out_date: moveOutDate } as never);
+  const { unmount } = await render(<RoomList />);
+  await screen.findByText('Kitchen');
+  expect(screen.queryByTestId('deposit-deadline')).toBeNull();
+  await unmount();
+
+  r.getInspection.mockResolvedValue({ ...base, kind: 'move_out', finished_at: null, state: 'WA', move_out_date: moveOutDate } as never);
+  await render(<RoomList />);
+  expect(
+    await screen.findByText('In Washington, landlords generally have 30 days after move-out to return the deposit. Full statement and any refund are due within 30 days.'),
+  ).toBeOnTheScreen();
+  expect(screen.getByText(`Due around ${new Date(2027, 6, 30).toLocaleDateString()}`)).toBeOnTheScreen();
+  const { Linking } = jest.requireActual('react-native');
+  const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+  await fireEvent.press(screen.getByRole('link', { name: 'Source' }));
+  expect(open).toHaveBeenCalledWith('https://app.leg.wa.gov/RCW/default.aspx?cite=59.18.280');
+});

@@ -21,6 +21,7 @@ const base: Inspection = {
   landlord_name: null,
   linked_move_in_id: null,
   move_out_date: null,
+  state: null,
 };
 
 beforeEach(() => {

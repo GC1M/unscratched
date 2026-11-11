@@ -41,7 +41,7 @@ test('valid submit creates with trimmed values and navigates to the inspection',
   await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/inspection/42'));
   expect(createInspectionFromTemplate).toHaveBeenCalledWith(
     { fake: true },
-    { address: '1 Main St', unit: '2B', tenant_name: null, landlord_name: null, move_out_date: null },
+    { address: '1 Main St', unit: '2B', tenant_name: null, landlord_name: null, move_out_date: null, state: null },
     undefined,
     'US',
   );
@@ -111,4 +111,32 @@ test('picking a region creates from its templates and remembers it', async () =>
   await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/inspection/9'));
   expect(jest.mocked(createInspectionFromTemplate).mock.calls[0][3]).toBe('CA');
   expect(setSetting).toHaveBeenCalledWith({ fake: true }, 'region', 'CA');
+});
+
+test('a state code is saved uppercased; an unknown one shows an error and does not create', async () => {
+  jest.mocked(createInspectionFromTemplate).mockResolvedValue(9);
+  await render(<NewInspection />);
+  await fireEvent.changeText(screen.getByLabelText('Address'), '1 Main St');
+  await fireEvent.changeText(screen.getByLabelText('State (two letters)'), 'zz');
+  await fireEvent.press(screen.getByRole('button', { name: 'Start inspection' }));
+  expect(await screen.findByText('Use a two-letter US state code like CA')).toBeOnTheScreen();
+  expect(createInspectionFromTemplate).not.toHaveBeenCalled();
+
+  await fireEvent.changeText(screen.getByLabelText('State (two letters)'), 'wa');
+  expect(screen.queryByText('Use a two-letter US state code like CA')).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: 'Start inspection' }));
+  await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/inspection/9'));
+  expect(jest.mocked(createInspectionFromTemplate).mock.calls[0][1]).toMatchObject({ state: 'WA' });
+});
+
+test('the state field only shows for US templates, and a non-US inspection saves no state', async () => {
+  jest.mocked(createInspectionFromTemplate).mockResolvedValue(10);
+  await render(<NewInspection />);
+  await fireEvent.changeText(screen.getByLabelText('State (two letters)'), 'zz');
+  await fireEvent.press(screen.getByLabelText('UK room templates'));
+  expect(screen.queryByLabelText('State (two letters)')).toBeNull();
+  await fireEvent.changeText(screen.getByLabelText('Address'), '1 Main St');
+  await fireEvent.press(screen.getByRole('button', { name: 'Start inspection' }));
+  await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/inspection/10'));
+  expect(jest.mocked(createInspectionFromTemplate).mock.calls[0][1]).toMatchObject({ state: null });
 });

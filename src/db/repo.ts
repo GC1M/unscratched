@@ -43,12 +43,13 @@ export interface NewInspection {
   landlord_name?: string | null;
   linked_move_in_id?: number | null;
   move_out_date?: number | null;
+  state?: string | null;
 }
 
 export async function createInspection(db: SQLiteDatabase, input: NewInspection): Promise<number> {
   const r = await db.runAsync(
-    `INSERT INTO inspection (address, unit, kind, started_at, tenant_name, landlord_name, linked_move_in_id, move_out_date)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO inspection (address, unit, kind, started_at, tenant_name, landlord_name, linked_move_in_id, move_out_date, state)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     input.address,
     input.unit ?? null,
     input.kind ?? 'move_in',
@@ -57,6 +58,7 @@ export async function createInspection(db: SQLiteDatabase, input: NewInspection)
     input.landlord_name ?? null,
     input.linked_move_in_id ?? null,
     input.move_out_date ?? null,
+    input.state ?? null,
   );
   return r.lastInsertRowId;
 }
@@ -109,6 +111,7 @@ export async function copyFromMoveIn(db: SQLiteDatabase, moveInId: number): Prom
       landlord_name: src.landlord_name,
       linked_move_in_id: src.id,
       move_out_date: src.move_out_date,
+      state: src.state,
     });
     for (const room of await listRooms(db, moveInId)) {
       const r = await db.runAsync('INSERT INTO room (inspection_id, name, sort) VALUES (?, ?, ?)', id, room.name, room.sort);

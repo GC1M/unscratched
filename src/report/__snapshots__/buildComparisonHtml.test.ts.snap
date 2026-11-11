@@ -44,6 +44,7 @@ footer { margin-top: 24pt; font-size: 8pt; color: #666; }
 <dt>Move-out verification</dt><dd>Verification code: abcdef012345<br>unscratched.app/v/abcdef012345</dd>
 </dl>
 <p>Rows marked "Worse" are items whose condition got worse between move-in and move-out. Photos were taken in the Unscratched app; each photo's SHA-256 fingerprint is listed so the files can be checked later.</p>
+<p class="deposit">In California, landlords generally have 21 days after move-out to return the deposit. Itemized statement and any refund are both due within 21 days. Due around Jan 23, 2027. Source: <a href="https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CIV&amp;sectionNum=1950.5">https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CIV&amp;sectionNum=1950.5</a>. Not legal advice.</p>
 </section>
 <section class="room">
 <h2>&lt;script&gt;alert(1)&lt;/script&gt;</h2>
@@ -111,6 +112,7 @@ footer { margin-top: 24pt; font-size: 8pt; color: #666; }
 <dt>Move-out verification</dt><dd>Verification code: abcdef012345<br>unscratched.app/v/abcdef012345</dd>
 </dl>
 <p>Rows marked "Worse" are items whose condition got worse between move-in and move-out. Photos were taken in the Unscratched app; each photo's SHA-256 fingerprint is listed so the files can be checked later.</p>
+<p class="deposit">In California, landlords generally have 21 days after move-out to return the deposit. Itemized statement and any refund are both due within 21 days. Due around Jan 23, 2027. Source: <a href="https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CIV&amp;sectionNum=1950.5">https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CIV&amp;sectionNum=1950.5</a>. Not legal advice.</p>
 </section>
 <section class="room">
 <h2>Kitchen</h2>
