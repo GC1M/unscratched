@@ -109,6 +109,10 @@ describe('repo', () => {
       linked_move_in_id: null,
       move_out_date: null,
       state: null,
+      landlord_email: null,
+      portal_url: null,
+      sent_at: null,
+      sent_channel: null,
     });
     expect((await repo.listInspections(db)).map((i) => i.id)).toEqual([b, a]);
     expect(await repo.getInspection(db, 999)).toBeNull();
@@ -312,6 +316,32 @@ describe('repo', () => {
     await add(walls, 'walls', 5);
     await add(den, 'den', 0);
     expect((await repo.listInspectionPhotos(db, insp)).map((p) => p.file_uri)).toEqual(['walls', 'tub-early', 'tub-late', 'sink']);
+  });
+
+  test('landlord contact and the sent record save on a finished inspection, which stays locked otherwise', async () => {
+    const { db } = await setup();
+    const id = await repo.createInspectionFromTemplate(db, { address: '1 Main St' }, ['Kitchen']);
+    await repo.finishInspection(db, id);
+    await repo.setLandlordContact(db, id, { landlord_email: 'lee@example.com', portal_url: 'https://portal.example.com' });
+    jest.spyOn(Date, 'now').mockReturnValue(5000);
+    await repo.recordSent(db, id, 'portal');
+    jest.mocked(Date.now).mockRestore();
+    expect(await repo.getInspection(db, id)).toMatchObject({
+      landlord_email: 'lee@example.com',
+      portal_url: 'https://portal.example.com',
+      sent_at: 5000,
+      sent_channel: 'portal',
+    });
+    await repo.setLandlordContact(db, id, { landlord_email: null, portal_url: null });
+    expect(await repo.getInspection(db, id)).toMatchObject({ landlord_email: null, portal_url: null, sent_channel: 'portal' });
+    const [room] = await repo.listRooms(db, id);
+    await expect(repo.renameRoom(db, room.id, 'x')).rejects.toBeInstanceOf(repo.InspectionLockedError);
+  });
+
+  test('schema rejects an unknown sent channel', async () => {
+    const { db } = await setup();
+    const id = await repo.createInspection(db, { address: '1 Main St' });
+    await expect(repo.recordSent(db, id, 'fax' as never)).rejects.toThrow();
   });
 
   test('settings upsert and read back', async () => {

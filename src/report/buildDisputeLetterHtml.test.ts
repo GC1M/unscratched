@@ -37,6 +37,10 @@ const inspection = (over: Partial<Inspection>): Inspection => ({
   linked_move_in_id: null,
   move_out_date: null,
   state: null,
+  landlord_email: null,
+  portal_url: null,
+  sent_at: null,
+  sent_channel: null,
   ...over,
 });
 

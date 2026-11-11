@@ -60,6 +60,13 @@ export const migrations: string[] = [
   `,
   // Two-letter US state code for the deposit-return deadline; optional.
   'ALTER TABLE inspection ADD COLUMN state TEXT;',
+  // Delivery to the landlord: contact details and when/how the report was sent. Editable after finish.
+  `
+  ALTER TABLE inspection ADD COLUMN landlord_email TEXT;
+  ALTER TABLE inspection ADD COLUMN portal_url TEXT;
+  ALTER TABLE inspection ADD COLUMN sent_at INTEGER;
+  ALTER TABLE inspection ADD COLUMN sent_channel TEXT CHECK (sent_channel IN ('email', 'portal', 'share'));
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase): Promise<void> {

@@ -1,10 +1,12 @@
-import type { Condition } from '@/db/types';
+import type { Condition, SentChannel } from '@/db/types';
 
 import { escapeHtml } from './escapeHtml';
 import { signatureSvg } from './signature';
 import type { ReportData } from './types';
 
 export const CONDITION_LABELS: Record<Condition, string> = { good: 'Good', fair: 'Fair', damaged: 'Damaged' };
+
+export const SENT_CHANNEL_LABELS: Record<SentChannel, string> = { email: 'email', portal: 'landlord portal', share: 'share sheet' };
 
 const BLANK = '<span class="blank"></span>';
 
@@ -63,6 +65,7 @@ ${row('Started', fmt(inspection.started_at))}
 ${row('Finished', inspection.finished_at != null ? fmt(inspection.finished_at) : 'Not finished')}
 ${inspection.tenant_name ? row('Tenant', escapeHtml(inspection.tenant_name)) : ''}
 ${inspection.landlord_name ? row('Landlord or manager', escapeHtml(inspection.landlord_name)) : ''}
+${inspection.sent_at != null && inspection.sent_channel ? row('Sent to landlord', `${fmt(inspection.sent_at)} by ${escapeHtml(SENT_CHANNEL_LABELS[inspection.sent_channel])}`) : ''}
 ${row('Generated', fmt(generatedAt))}
 ${hasPhotos ? row('Verification', verificationText(verificationCode)) : ''}
 </dl>

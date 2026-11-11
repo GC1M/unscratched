@@ -45,6 +45,10 @@ const fixture = (): Comparison => ({
     linked_move_in_id: null,
     move_out_date: null,
     state: null,
+    landlord_email: null,
+    portal_url: null,
+    sent_at: null,
+    sent_channel: null,
   },
   moveOut: {
     id: 2,
@@ -58,6 +62,10 @@ const fixture = (): Comparison => ({
     linked_move_in_id: 1,
     move_out_date: new Date(2027, 0, 2).getTime(),
     state: 'CA',
+    landlord_email: null,
+    portal_url: null,
+    sent_at: null,
+    sent_channel: null,
   },
   rooms: [
     {

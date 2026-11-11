@@ -322,3 +322,25 @@ test('a move-out with a known state shows the deposit deadline, due date and sou
   await fireEvent.press(screen.getByRole('link', { name: 'Source' }));
   expect(open).toHaveBeenCalledWith('https://app.leg.wa.gov/RCW/default.aspx?cite=59.18.280');
 });
+
+test('a finished inspection shows the sent record and still saves the landlord contact; bad portal links are refused', async () => {
+  const sentAt = new Date(2026, 0, 22).getTime();
+  r.getInspection.mockResolvedValue({
+    id: 1, address: '1 Main St', kind: 'move_in', started_at: 0, finished_at: 1,
+    landlord_email: 'lee@example.com', portal_url: null, sent_at: sentAt, sent_channel: 'email',
+  } as never);
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  await render(<RoomList />);
+  expect(await screen.findByText(`Sent to landlord on ${shortDate(sentAt)} by email`)).toBeOnTheScreen();
+  expect(screen.getByText('lee@example.com')).toBeOnTheScreen();
+
+  await fireEvent.press(screen.getByRole('button', { name: 'Edit Landlord portal' }));
+  await fireEvent.changeText(screen.getByLabelText('Landlord portal'), 'javascript:alert(1)');
+  await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+  expect(alert).toHaveBeenCalledWith('Check the portal link', 'Enter the full web address, starting with https://');
+  expect(r.setLandlordContact).not.toHaveBeenCalled();
+
+  await fireEvent.changeText(screen.getByLabelText('Landlord portal'), ' https://portal.example.com ');
+  await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+  expect(r.setLandlordContact).toHaveBeenCalledWith({}, 1, { landlord_email: 'lee@example.com', portal_url: 'https://portal.example.com' });
+});
