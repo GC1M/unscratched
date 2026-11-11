@@ -39,7 +39,7 @@ test('Export PDF is disabled until the tenant name is filled, then exports with 
   await fireEvent.changeText(screen.getByLabelText('Landlord or manager typed name'), ' ');
   expect(button).toBeEnabled();
   await fireEvent.press(button);
-  expect(exportReport).toHaveBeenCalledWith({}, 1, { tenantName: 'Ana Ruiz', landlordName: null, date: finishedAt });
+  expect(exportReport).toHaveBeenCalledWith({}, 1, { tenantName: 'Ana Ruiz', landlordName: null, date: finishedAt, tenantSignature: null });
   expect(repo.getInspection).toHaveBeenCalledTimes(1);
 });
 
@@ -52,7 +52,7 @@ test('prefills names from the inspection and shows an alert when export fails', 
   await render(<ExportReport />);
   await screen.findByDisplayValue('Ana');
   await fireEvent.press(screen.getByRole('button', { name: 'Export PDF' }));
-  expect(exportReport).toHaveBeenCalledWith({}, 1, { tenantName: 'Ana', landlordName: 'Lee', date: finishedAt });
+  expect(exportReport).toHaveBeenCalledWith({}, 1, { tenantName: 'Ana', landlordName: 'Lee', date: finishedAt, tenantSignature: null });
   expect(alert).toHaveBeenCalledWith('Export failed', 'boom');
 });
 

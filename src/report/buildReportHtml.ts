@@ -1,6 +1,7 @@
 import type { Condition } from '@/db/types';
 
 import { escapeHtml } from './escapeHtml';
+import { signatureSvg } from './signature';
 import type { ReportData } from './types';
 
 export const CONDITION_LABELS: Record<Condition, string> = { good: 'Good', fair: 'Fair', damaged: 'Damaged' };
@@ -29,6 +30,7 @@ th { background: #f2f2f2; }
 .missing { display: flex; align-items: center; justify-content: center; height: 120pt; background: #f2f2f2; color: #666; }
 .hash { font-family: Menlo, Consolas, monospace; }
 .ack { page-break-inside: avoid; margin-top: 24pt; }
+.sig { display: block; width: 180pt; height: 60pt; }
 .blank { display: inline-block; width: 200pt; border-bottom: 1px solid #111; }
 footer { margin-top: 24pt; font-size: 8pt; color: #666; }
 `;
@@ -95,10 +97,11 @@ ${cards.length ? `<div class="grid">\n${cards.join('\n')}\n</div>` : ''}
   });
 
   const tenant = acknowledgement?.tenantName ? escapeHtml(acknowledgement.tenantName) : BLANK;
+  const signature = signatureSvg(acknowledgement?.tenantSignature) ?? '';
   const landlord = acknowledgement?.landlordName ? escapeHtml(acknowledgement.landlordName) : BLANK;
   const ack = `<section class="ack">
 <p>I confirm this report reflects the unit's condition on ${fmt(inspection.finished_at ?? generatedAt)}.</p>
-<p>Tenant: ${tenant}</p>
+<p>Tenant: ${tenant}${signature}</p>
 <p>Landlord or manager: ${landlord}</p>
 </section>`;
 
