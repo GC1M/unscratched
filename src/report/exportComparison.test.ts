@@ -5,7 +5,8 @@ import { syncReceipts } from '@/receipts/queue';
 
 import { buildComparisonHtml } from './buildComparisonHtml';
 import { buildComparison } from './comparison';
-import { comparisonFileName, exportComparison } from './exportComparison';
+import { buildDisputeLetterHtml } from './buildDisputeLetterHtml';
+import { comparisonFileName, exportComparison, exportDisputeLetter } from './exportComparison';
 import { loadReportData } from './loadReport';
 import type { ReportData } from './types';
 
@@ -29,6 +30,7 @@ jest.mock('./loadReport', () => ({ loadReportData: jest.fn() }));
 jest.mock('@/receipts/queue', () => ({ syncReceipts: jest.fn(async () => {}) }));
 jest.mock('./comparison', () => ({ buildComparison: jest.fn() }));
 jest.mock('./buildComparisonHtml', () => ({ buildComparisonHtml: jest.fn() }));
+jest.mock('./buildDisputeLetterHtml', () => ({ buildDisputeLetterHtml: jest.fn() }));
 
 const db = {} as never;
 const at = new Date(2026, 0, 20, 15).getTime();
@@ -45,6 +47,7 @@ beforeEach(() => {
   jest.mocked(loadReportData).mockImplementation(async (_db, id) => (id === 7 ? moveOut : moveIn));
   jest.mocked(buildComparison).mockReturnValue(comparison);
   jest.mocked(buildComparisonHtml).mockReturnValue('<html>cmp</html>');
+  jest.mocked(buildDisputeLetterHtml).mockReturnValue('<html>letter</html>');
   jest.mocked(Print.printToFileAsync).mockResolvedValue({ uri: 'file:///cache/Print/abc.pdf', numberOfPages: 1 });
 });
 
@@ -87,4 +90,28 @@ test('syncs receipts before loading the report data', async () => {
   expect(jest.mocked(syncReceipts).mock.invocationCallOrder[0]).toBeLessThan(
     jest.mocked(loadReportData).mock.invocationCallOrder[0],
   );
+});
+
+test('dispute letter: builds the comparison, prints the letter, and shares it under its own name', async () => {
+  const pdf = 'file:///cache/Unscratched-dispute-letter-12-main-st-apt-3-2026-01-20.pdf';
+  await expect(exportDisputeLetter(db, 7)).resolves.toBe(pdf);
+  expect(syncReceipts).toHaveBeenCalledWith(db);
+  expect(buildComparison).toHaveBeenCalledWith(moveIn, moveOut);
+  expect(buildDisputeLetterHtml).toHaveBeenCalledWith(comparison);
+  expect(buildComparisonHtml).not.toHaveBeenCalled();
+  expect(Print.printToFileAsync).toHaveBeenCalledWith({ html: '<html>letter</html>' });
+  expect(mockMoves).toEqual([['file:///cache/Print/abc.pdf', pdf, { overwrite: true }]]);
+  expect(Sharing.shareAsync).toHaveBeenCalledWith(pdf, {
+    mimeType: 'application/pdf',
+    UTI: 'com.adobe.pdf',
+    dialogTitle: 'Share dispute letter',
+  });
+});
+
+test('dispute letter throws when sharing is unavailable or the move-out is not linked', async () => {
+  jest.mocked(Sharing.isAvailableAsync).mockResolvedValueOnce(false);
+  await expect(exportDisputeLetter(db, 7)).rejects.toThrow('Sharing is not available on this device.');
+  jest.mocked(loadReportData).mockResolvedValue({ inspection: { linked_move_in_id: null } } as never);
+  await expect(exportDisputeLetter(db, 7)).rejects.toThrow('not linked to a move-in');
+  expect(Print.printToFileAsync).not.toHaveBeenCalled();
 });

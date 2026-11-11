@@ -1,0 +1,39 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`snapshot of the full letter 1`] = `
+"<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Security deposit return request</title>
+<style>
+@page { margin: 20mm; }
+body { font-family: Georgia, "Times New Roman", serif; color: #111; font-size: 11pt; line-height: 1.5; margin: 0; }
+.disclaimer { border: 2px solid #b3261e; color: #b3261e; padding: 6pt 8pt; margin: 0 0 18pt; font-family: -apple-system, Helvetica, Arial, sans-serif; font-size: 10pt; }
+.placeholder { background: #fff3c4; }
+table { width: 100%; border-collapse: collapse; margin: 6pt 0 12pt; font-size: 10pt; }
+th, td { border: 1px solid #ccc; padding: 4pt 6pt; text-align: left; vertical-align: top; }
+th { background: #f2f2f2; }
+</style>
+</head>
+<body>
+<p class="disclaimer"><strong>Not legal advice.</strong> This is a template prefilled from your inspection. Check your state or local law and edit anything in brackets before sending.</p>
+<p>2027-01-03</p>
+<p>Pat Owner<br><span class="placeholder">[Landlord mailing address]</span></p>
+<p><strong>Re: Return of security deposit for 12 Elm St, Unit 4B</strong></p>
+<p>Dear Pat Owner,</p>
+<p>I rented 12 Elm St, Unit 4B and moved in on 2026-01-02. I moved out on 2027-01-01. I am writing to ask that my security deposit of <span class="placeholder">[Deposit amount]</span> be returned in full, or that you send an itemized list of any deductions.</p>
+<p>In California, landlords generally have 21 days after move-out to return the deposit. Itemized statement and any refund are both due within 21 days. By that rule the deposit is due around 2027-01-22. Source: https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CIV&amp;sectionNum=1950.5.</p>
+<p>I documented the unit's condition at move-in and at move-out. 2 items were recorded in the same or better condition at move-out.</p>
+<p>The comparison marks 2 items as being in worse condition at move-out than at move-in. I list them here so we can discuss them openly, and I ask that any deduction for them be itemized with receipts or estimates and reflect only damage beyond normal wear and tear:</p>
+<table><thead><tr><th>Room</th><th>Item</th><th>Move-in</th><th>Move-out</th><th>Note</th></tr></thead><tbody>
+<tr><td>Kitchen</td><td>Oven</td><td>Good</td><td>Damaged</td><td>Scorch mark on door</td></tr>
+<tr><td>Bath</td><td>Mirror</td><td>Good</td><td>Fair</td><td></td></tr>
+</tbody></table>
+<p>The attached move-in vs move-out comparison report has dated photos of the unit with server timestamps. It can be checked with verification code abcdef012345 at unscratched.app/v/abcdef012345.</p>
+<p>Please send the deposit to <span class="placeholder">[Forwarding address]</span>. Thank you for your help.</p>
+<p>Sincerely,<br>Sam Renter</p>
+</body>
+</html>
+"
+`;
