@@ -45,8 +45,9 @@ jobs:
         with:
           version: latest
       - run: npm ci
-      - name: Start Supabase (database, API gateway, REST, edge runtime only)
-        run: supabase start -x gotrue,realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,logflare,vector,supavisor
+      - name: Start Supabase (database, auth, API gateway, REST, edge runtime only)
+        # Auth stays on: without it `supabase status` prints no ANON_KEY and the integration suites skip silently.
+        run: supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,logflare,vector,supavisor
       - name: Serve edge functions
         run: |
           supabase functions serve --no-verify-jwt > /tmp/functions.log 2>&1 &
@@ -60,6 +61,7 @@ jobs:
       - name: Integration tests
         run: |
           eval "$(supabase status -o env | grep -E '^(API_URL|ANON_KEY)=')"
+          : "${API_URL:?supabase status printed no API_URL}" "${ANON_KEY:?supabase status printed no ANON_KEY}"
           SUPABASE_TEST_URL=$API_URL SUPABASE_TEST_ANON_KEY=$ANON_KEY \
           SUPABASE_URL=$API_URL SUPABASE_ANON_KEY=$ANON_KEY \
             npx jest supabase/ --ci
