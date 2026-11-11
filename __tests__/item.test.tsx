@@ -3,10 +3,11 @@ import { router } from 'expo-router';
 import { AppState, type AppStateStatus } from 'react-native';
 
 import ItemScreen from '../app/item/[id]';
-import { getFinishedAt, getItem, getRoom, listItems, listPhotos, setCondition, setNote } from '@/db/repo';
+import { getFinishedAt, getItem, getRoom, getSetting, listItems, listPhotos, setCondition, setNote } from '@/db/repo';
 import type { Item, Photo } from '@/db/types';
 import { findMoveInItem } from '@/lib/moveInMatch';
 import { shortDate } from '@/lib/format';
+import { suggestNote } from '@/lib/suggestNote';
 
 const db = {};
 
@@ -15,12 +16,14 @@ jest.mock('@/db/repo', () => ({
   getFinishedAt: jest.fn(),
   getItem: jest.fn(),
   getRoom: jest.fn(),
+  getSetting: jest.fn(),
   listItems: jest.fn(),
   listPhotos: jest.fn(),
   setCondition: jest.fn(() => Promise.resolve()),
   setNote: jest.fn(() => Promise.resolve()),
 }));
 jest.mock('@/lib/moveInMatch', () => ({ findMoveInItem: jest.fn() }));
+jest.mock('@/lib/suggestNote', () => ({ ...jest.requireActual('@/lib/suggestNote'), suggestNote: jest.fn() }));
 jest.mock('expo-router', () => jest.requireActual('@/test/expoRouter').mockExpoRouter({ useLocalSearchParams: () => ({ id: '7' }) }));
 
 const item: Item = { id: 7, room_id: 1, name: 'Walls', condition: null, note: null, sort: 0 };
@@ -44,6 +47,7 @@ beforeEach(() => {
   jest.mocked(listPhotos).mockResolvedValue([]);
   jest.mocked(getFinishedAt).mockResolvedValue(null);
   jest.mocked(findMoveInItem).mockResolvedValue(null);
+  jest.mocked(getSetting).mockResolvedValue(null);
 });
 
 test('tapping a condition selects it and saves; tapping again clears it', async () => {
@@ -164,5 +168,73 @@ describe('move-in peek', () => {
     await render(<ItemScreen />);
     await fireEvent.press(await screen.findByRole('button', { name: 'View move-in photo' }));
     expect(screen.getByText('No move-in photo for this item')).toBeOnTheScreen();
+  });
+});
+
+describe('note suggestions', () => {
+  beforeEach(() => {
+    jest.mocked(listPhotos).mockResolvedValue([photo(1), photo(2)]);
+  });
+
+  test('off by default: no Suggest note button and no request', async () => {
+    await render(<ItemScreen />);
+    expect(await screen.findByLabelText('Photo 1')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Suggest note for photo 1' })).toBeNull();
+    expect(suggestNote).not.toHaveBeenCalled();
+  });
+
+  test('when on, a suggestion is shown and Apply fills the note and sets the condition', async () => {
+    jest.mocked(getSetting).mockResolvedValue('1');
+    jest.mocked(getItem).mockResolvedValue({ ...item, note: 'Old mark' });
+    jest.mocked(suggestNote).mockResolvedValue({ caption: 'Scratch on door frame', severity: 'major' });
+    await render(<ItemScreen />);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Suggest note for photo 2' }));
+    expect(suggestNote).toHaveBeenCalledWith(db, photo(2));
+    expect(await screen.findByText('Scratch on door frame')).toBeOnTheScreen();
+    expect(screen.getByText('Condition: Damaged')).toBeOnTheScreen();
+    expect(setNote).not.toHaveBeenCalled();
+    expect(setCondition).not.toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Apply' }));
+    await waitFor(() => expect(setCondition).toHaveBeenCalledWith(db, 7, 'damaged'));
+    expect(setNote).toHaveBeenCalledWith(db, 7, 'Old mark\nScratch on door frame');
+    expect(screen.getByLabelText('Note').props.value).toBe('Old mark\nScratch on door frame');
+    expect(screen.getByRole('radio', { name: 'Damaged' })).toBeSelected();
+    expect(screen.queryByText('Scratch on door frame')).toBeNull();
+  });
+
+  test('Discard saves nothing', async () => {
+    jest.mocked(getSetting).mockResolvedValue('1');
+    jest.mocked(suggestNote).mockResolvedValue({ caption: 'Clean wall', severity: 'none' });
+    await render(<ItemScreen />);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Suggest note for photo 1' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Discard' }));
+    expect(screen.queryByText('Clean wall')).toBeNull();
+    expect(setNote).not.toHaveBeenCalled();
+    expect(setCondition).not.toHaveBeenCalled();
+  });
+
+  test('a failure shows the error with a retry, and the rest of the screen still works', async () => {
+    jest.mocked(getSetting).mockResolvedValue('1');
+    jest.mocked(suggestNote)
+      .mockRejectedValueOnce(new Error('Could not reach the server. Check your connection.'))
+      .mockResolvedValueOnce({ caption: 'Small chip', severity: 'minor' });
+    await render(<ItemScreen />);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Suggest note for photo 1' }));
+    expect(await screen.findByText('Could not reach the server. Check your connection.')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('radio', { name: 'Fair' }));
+    expect(setCondition).toHaveBeenLastCalledWith(db, 7, 'fair');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('Small chip')).toBeOnTheScreen();
+    expect(suggestNote).toHaveBeenLastCalledWith(db, photo(1));
+  });
+
+  test('hidden on a finished inspection', async () => {
+    jest.mocked(getSetting).mockResolvedValue('1');
+    jest.mocked(getFinishedAt).mockResolvedValue(5);
+    await render(<ItemScreen />);
+    expect(await screen.findByLabelText('Photo 1')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Suggest note for photo 1' })).toBeNull();
   });
 });

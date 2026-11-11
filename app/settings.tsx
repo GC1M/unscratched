@@ -1,9 +1,13 @@
 import Constants from 'expo-constants';
 import { Stack } from 'expo-router';
-import { StyleSheet, Text } from 'react-native';
+import { useEffect, useState } from 'react';
+import { StyleSheet, Switch, Text } from 'react-native';
 
 import { Group, Row, RowMeta, RowTitle, SectionLabel } from '@/components/Group';
 import { Screen } from '@/components/Screen';
+import { getDb } from '@/db/client';
+import { getSetting, setSetting } from '@/db/repo';
+import { SUGGEST_SETTING } from '@/lib/suggestNote';
 import { useTheme, useThemePref, type ThemePref } from '@/theme';
 
 const APPEARANCE: { value: ThemePref; label: string; meta?: string }[] = [
@@ -15,6 +19,22 @@ const APPEARANCE: { value: ThemePref; label: string; meta?: string }[] = [
 export default function Settings() {
   const { c } = useTheme();
   const { pref, setPref } = useThemePref();
+  const [suggest, setSuggest] = useState(false);
+
+  useEffect(() => {
+    getDb()
+      .then((db) => getSetting(db, SUGGEST_SETTING))
+      .then((v) => setSuggest(v === '1'))
+      .catch(() => {});
+  }, []);
+
+  function toggleSuggest(on: boolean) {
+    setSuggest(on);
+    getDb()
+      .then((db) => setSetting(db, SUGGEST_SETTING, on ? '1' : '0'))
+      .catch(() => setSuggest(!on));
+  }
+
   return (
     <>
       <Stack.Screen options={{ title: 'Settings', headerLargeTitleStyle: { fontSize: 34, color: c.ink } }} />
@@ -40,6 +60,15 @@ export default function Settings() {
           <Row first>
             <RowTitle>Photos and reports stay on this phone</RowTitle>
             <RowMeta>Only photo fingerprints are sent, for timestamp receipts. Back up with iCloud.</RowMeta>
+          </Row>
+          <Row
+            trailing={<Switch accessibilityLabel="Suggest notes from photos" value={suggest} onValueChange={toggleSuggest} />}
+          >
+            <RowTitle>Suggest notes from photos</RowTitle>
+            <RowMeta>
+              Off by default. When on, tapping Suggest note sends a smaller copy of that one photo to our server, which asks
+              an AI model to describe it. The photo is not stored. Suggestions can be wrong, so check before applying.
+            </RowMeta>
           </Row>
         </Group>
         <SectionLabel>About</SectionLabel>

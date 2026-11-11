@@ -2,13 +2,13 @@
 
 Effective date: [effective date]
 
-Unscratched is a free app that helps renters document the condition of a home. This page explains what happens to your information. The short version: your photos, addresses, names, and notes stay on your phone. The only thing that leaves it is a fingerprint of each photo, used to get a timestamp receipt.
+Unscratched is a free app that helps renters document the condition of a home. This page explains what happens to your information. The short version: your photos, addresses, names, and notes stay on your phone. The only thing that leaves it is a fingerprint of each photo, used to get a timestamp receipt. If you turn on the optional "Suggest notes from photos" setting, a photo you choose is also sent, once, to get a suggested note, and is not stored.
 
 ## What we collect
 
 Unscratched has no accounts, no sign-in, no analytics, no ads, and no tracking SDKs. We do not sell any data.
 
-The only thing we receive is photo fingerprints (see "Timestamp receipts" below). We never receive your photos, addresses, names, notes, or anything that identifies you or your device.
+By default, the only thing we receive is photo fingerprints (see "Timestamp receipts" below). We never receive your addresses, names, notes, or anything that identifies you. We only receive a photo if you turn on note suggestions and tap "Suggest note" on it (see "Optional note suggestions" below).
 
 ## Where your data lives
 
@@ -20,8 +20,10 @@ The app only shares something when you choose to. If you create a PDF report and
 
 ## Permissions
 
-- Camera: used only to take inspection photos inside the app. Images are never sent anywhere; only their fingerprints are, as described below.
-- Noti## Timestamp receipts
+- Camera: used only to take inspection photos inside the app. Photos are not sent anywhere unless you use optional note suggestions on a photo, as described below. Their fingerprints are sent for timestamp receipts.
+- Notifications: if you set a move-out date and allow notifications, the app schedules reminders locally on your device (7 days before move-out, and 14 and 30 days after). No push notification server is involved and no push token is created.
+
+## Timestamp receipts
 
 A phone's clock can be changed, so when you finish an inspection the app asks our server to record when it first saw each photo. To do that it sends:
 
@@ -38,13 +40,22 @@ Anyone who has a fingerprint, or the verification code printed in your report, c
 
 Fingerprints are kept so receipts stay checkable. Because they are not linked to you, we cannot find "your" fingerprints to delete them.
 
-eceipt. Only the fingerprints would be sent. No photos, addresses, or names would be sent. A fingerprint is a short string of characters that cannot be turned back into the photo.
+## Optional note suggestions
 
-This policy will be updated before that feature ships.
+This feature is off unless you turn on "Suggest notes from photos" in Settings. When it is off, the app sends no photos and makes no suggestion requests.
+
+When it is on, nothing is sent until you tap "Suggest note" under a photo. Then the app sends:
+
+- a smaller copy of that one photo (about 768 pixels on the long side), and
+- a random install id that the app creates once. It is not tied to your name, account, or device, and is used only to limit each install to 30 suggestions a day.
+
+Our server passes the photo to Anthropic's Claude AI model, which returns a short description and a rough severity. The server sends that back to your phone and keeps nothing about the photo: it is not saved, and it is not written to our logs. Anthropic processes the photo to answer the request. Under its API terms it does not use the photo to train models by default, and may keep it for a limited time for trust and safety before deleting it. Our database keeps only the install id and how many suggestions it made each day.
+
+The suggestion is only shown to you. Nothing is added to your note or condition unless you tap Apply, and you can edit or delete it after. AI suggestions can be wrong. They are a starting point for your own description, not an assessment of the damage or of who is responsible.
 
 ## Deleting your data
 
-Deleting the app deletes its data from your device. We hold no copy of your photos or inspection details. The only thing on our side is anonymous photo fingerprints, as described above. If you have an iCloud device backup that included the app, manage or delete that backup in your iCloud settings.
+Deleting the app deletes its data from your device. We hold no copy of your photos or inspection details. The only things on our side are anonymous photo fingerprints and, if you used note suggestions, daily suggestion counts for a random install id, as described above. If you have an iCloud device backup that included the app, manage or delete that backup in your iCloud settings.
 
 ## Changes
 

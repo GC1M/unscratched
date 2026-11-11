@@ -1,6 +1,6 @@
 import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, AppState, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { CONDITION_LABEL, ConditionMark } from '@/components/ConditionMark';
@@ -9,14 +9,21 @@ import { SectionLabel } from '@/components/Group';
 import { Screen } from '@/components/Screen';
 import { Loading, Problem, errorMessage } from '@/components/Status';
 import { getDb } from '@/db/client';
-import { getFinishedAt, getItem, getRoom, listItems, listPhotos, setCondition, setNote } from '@/db/repo';
+import { getFinishedAt, getItem, getRoom, getSetting, listItems, listPhotos, setCondition, setNote } from '@/db/repo';
 import type { Condition, Item, Photo } from '@/db/types';
 import { findMoveInItem } from '@/lib/moveInMatch';
 import { photoUri } from '@/lib/photos';
 import { nextUnchecked } from '@/lib/next';
+import { SUGGEST_SETTING, suggestNote, toCondition, type Suggestion } from '@/lib/suggestNote';
 import { radius, useTheme } from '@/theme';
 
 const CONDITIONS: Condition[] = ['good', 'fair', 'damaged'];
+
+type SuggestState = { photoId: number } & (
+  | { status: 'loading' }
+  | { status: 'error'; message: string }
+  | { status: 'ready'; value: Suggestion }
+);
 
 export default function ItemScreen() {
   const { c } = useTheme();
@@ -32,6 +39,9 @@ export default function ItemScreen() {
   // Photos of the matching move-in item; null when this is not a move-out item with a match.
   const [moveInPhotos, setMoveInPhotos] = useState<Photo[] | null>(null);
   const [peekOpen, setPeekOpen] = useState(false);
+  // Opt-in AI note suggestions. When off, nothing below sends a request.
+  const [suggestOn, setSuggestOn] = useState(false);
+  const [suggestion, setSuggestion] = useState<SuggestState | null>(null);
   const { width, fontScale } = useWindowDimensions();
   const locked = finishedAt != null;
 
@@ -46,12 +56,13 @@ export default function ItemScreen() {
           if (active()) setItem(null);
           return;
         }
-        const [room, list, loadedPhotos, finished, match] = await Promise.all([
+        const [room, list, loadedPhotos, finished, match, suggestSetting] = await Promise.all([
           getRoom(db, loaded.room_id),
           listItems(db, loaded.room_id),
           listPhotos(db, itemId),
           getFinishedAt(db, 'item', itemId),
           findMoveInItem(db, itemId),
+          getSetting(db, SUGGEST_SETTING),
         ]);
         const matchPhotos = match ? await listPhotos(db, match.id) : null;
         if (!active()) return;
@@ -62,6 +73,7 @@ export default function ItemScreen() {
         setFinishedAt(finished);
         setNoteText(loaded.note ?? '');
         setPhotos(loadedPhotos);
+        setSuggestOn(suggestSetting === '1');
       } catch (e) {
         if (active()) setError(e);
       }
@@ -91,6 +103,37 @@ export default function ItemScreen() {
       setItem(item);
       setSiblings((s) => s.map((i) => (i.id === itemId ? item : i)));
       Alert.alert('Could not save condition', errorMessage(e));
+    }
+  }
+
+  async function onSuggest(photo: Photo) {
+    setSuggestion({ photoId: photo.id, status: 'loading' });
+    let next: SuggestState;
+    try {
+      next = { photoId: photo.id, status: 'ready', value: await suggestNote(await getDb(), photo) };
+    } catch (e) {
+      next = { photoId: photo.id, status: 'error', message: errorMessage(e) };
+    }
+    // Ignore a late reply if the user moved on to another photo's suggestion or discarded this one.
+    setSuggestion((s) => (s?.photoId === photo.id && s.status === 'loading' ? next : s));
+  }
+
+  /** Appends the caption to the note and sets the suggested condition. Only runs on the user's tap. */
+  async function onApply(value: Suggestion) {
+    if (!item || item.id !== itemId || locked) return;
+    const nextNote = note.trim() ? `${note.trim()}\n${value.caption}` : value.caption;
+    const condition = toCondition(value.severity);
+    setSuggestion(null);
+    setNoteText(nextNote);
+    setItem({ ...item, condition });
+    setSiblings((s) => s.map((i) => (i.id === itemId ? { ...i, condition } : i)));
+    try {
+      const db = await getDb();
+      await setNote(db, itemId, nextNote);
+      await setCondition(db, itemId, condition);
+    } catch (e) {
+      Alert.alert('Could not save suggestion', errorMessage(e));
+      load();
     }
   }
 
@@ -205,9 +248,26 @@ export default function ItemScreen() {
 
         <SectionLabel>Photos</SectionLabel>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photos}>
-          {photos.map((p, i) => (
-            <Image key={p.id} accessible accessibilityRole="image" accessibilityLabel={`Photo ${i + 1}`} source={{ uri: photoUri(p) }} style={[styles.thumb, { backgroundColor: c.hair }]} />
-          ))}
+          {photos.map((p, i) => {
+            const image = (
+              <Image key={p.id} accessible accessibilityRole="image" accessibilityLabel={`Photo ${i + 1}`} source={{ uri: photoUri(p) }} style={[styles.thumb, { backgroundColor: c.hair }]} />
+            );
+            if (!suggestOn || locked) return image;
+            return (
+              <View key={p.id} style={styles.photoCol}>
+                {image}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Suggest note for photo ${i + 1}`}
+                  disabled={suggestion?.status === 'loading'}
+                  onPress={() => onSuggest(p)}
+                  style={({ pressed }) => [styles.suggestLink, pressed && { opacity: 0.6 }]}
+                >
+                  <Text style={[styles.suggestLinkText, { color: c.ink }]}>Suggest note</Text>
+                </Pressable>
+              </View>
+            );
+          })}
           {!locked && (
             <Pressable
               accessibilityRole="button"
@@ -220,6 +280,34 @@ export default function ItemScreen() {
             </Pressable>
           )}
         </ScrollView>
+        {suggestOn && !locked && suggestion && photos.some((p) => p.id === suggestion.photoId) && (
+          <View style={[styles.suggestCard, { backgroundColor: c.paper }]} accessibilityLiveRegion="polite">
+            {suggestion.status === 'loading' ? (
+              <View style={styles.suggestRow}>
+                <ActivityIndicator color={c.ink60} />
+                <Text style={[styles.suggestMeta, { color: c.ink60 }]}>Getting a suggestion</Text>
+              </View>
+            ) : suggestion.status === 'error' ? (
+              <>
+                <Text style={[styles.suggestText, { color: c.ink }]}>{suggestion.message}</Text>
+                <View style={styles.suggestRow}>
+                  <Button label="Try again" variant="secondary" onPress={() => onSuggest(photos.find((p) => p.id === suggestion.photoId)!)} style={styles.suggestButton} />
+                  <Button label="Dismiss" variant="tertiary" onPress={() => setSuggestion(null)} style={styles.suggestButton} />
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.suggestMeta, { color: c.ink60 }]}>AI suggestion. Check it before applying.</Text>
+                <Text style={[styles.suggestText, { color: c.ink }]}>{suggestion.value.caption}</Text>
+                <Text style={[styles.suggestMeta, { color: c.ink60 }]}>Condition: {CONDITION_LABEL[toCondition(suggestion.value.severity)]}</Text>
+                <View style={styles.suggestRow}>
+                  <Button label="Apply" onPress={() => onApply(suggestion.value)} style={styles.suggestButton} />
+                  <Button label="Discard" variant="secondary" onPress={() => setSuggestion(null)} style={styles.suggestButton} />
+                </View>
+              </>
+            )}
+          </View>
+        )}
         {moveInPhotos && (
           <Button label="View move-in photo" variant="secondary" onPress={() => setPeekOpen(true)} style={styles.peekButton} />
         )}
@@ -273,6 +361,14 @@ const styles = StyleSheet.create({
   note: { minHeight: 100, borderRadius: 20, padding: 16, fontSize: 16, textAlignVertical: 'top' },
   photos: { gap: 10 },
   thumb: { width: 88, height: 88, borderRadius: radius.tile },
+  photoCol: { gap: 2, alignItems: 'center' },
+  suggestLink: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
+  suggestLinkText: { fontSize: 13, fontWeight: '600', textDecorationLine: 'underline' },
+  suggestCard: { marginTop: 12, borderRadius: 20, padding: 16, gap: 8 },
+  suggestRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  suggestText: { fontSize: 16, lineHeight: 22 },
+  suggestMeta: { fontSize: 13 },
+  suggestButton: { flexGrow: 1 },
   add: { minWidth: 88, minHeight: 88, padding: 8, borderRadius: radius.tile, alignItems: 'center', justifyContent: 'center', gap: 2 },
   addPlus: { fontSize: 22, lineHeight: 24 },
   addText: { fontSize: 13, fontWeight: '500' },
