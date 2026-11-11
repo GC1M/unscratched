@@ -1,6 +1,6 @@
 import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { ConditionMark } from '@/components/ConditionMark';
@@ -28,6 +28,8 @@ import { kindLabel, shortDate } from '@/lib/format';
 import { nextRoom } from '@/lib/next';
 import { cancelReminders } from '@/lib/scheduleReminders';
 import { progress, type Progress } from '@/lib/progress';
+import { acknowledgeLink, fetchAcknowledgements, receiptedManifest, type Acknowledgement } from '@/receipts/acknowledgements';
+import { verificationCode } from '@/receipts/manifest';
 import { syncReceipts } from '@/receipts/queue';
 import { exportComparison } from '@/report/exportComparison';
 import { useTheme } from '@/theme';
@@ -49,6 +51,9 @@ export default function RoomList() {
   const [comparing, setComparing] = useState(false);
   const [starting, setStarting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Set once the server has a receipt for this finished inspection's manifest; acks come from the server, best effort.
+  const [manifest, setManifest] = useState<string | null>(null);
+  const [acks, setAcks] = useState<Acknowledgement[]>([]);
 
   const load = useCallback(async () => {
     setError(null);
@@ -65,6 +70,14 @@ export default function RoomList() {
       return;
     }
     setInspection(found);
+    if (found?.finished_at != null) {
+      void receiptedManifest(await getDb(), inspectionId)
+        .then(async (m) => {
+          setManifest(m);
+          if (m) setAcks(await fetchAcknowledgements(m));
+        })
+        .catch(() => {}); // the ack section just stays hidden
+    }
     setSummary(progress(list, items));
     setNext(nextRoom(list, items));
     setRooms(
@@ -170,6 +183,13 @@ export default function RoomList() {
     }
   };
 
+  const askLandlord = () => {
+    if (!manifest) return;
+    void Share.share({
+      message: `Please acknowledge that you received my inspection report (verification code ${verificationCode(manifest)}): ${acknowledgeLink(manifest)}`,
+    }).catch((e: unknown) => Alert.alert('Could not share the link', errorMessage(e)));
+  };
+
   const startMoveOut = async () => {
     if (starting) return;
     setStarting(true);
@@ -245,6 +265,16 @@ export default function RoomList() {
           </Text>
         )}
         {locked && inspection?.finished_at != null && <FinishedBanner finishedAt={inspection.finished_at} />}
+        {locked && manifest && (
+          <View style={styles.ack}>
+            {acks.map((a) => (
+              <Text key={`${a.at}-${a.name}`} style={[styles.ackText, { color: c.ink }]}>
+                Acknowledged by {a.name}, {shortDate(a.at)}
+              </Text>
+            ))}
+            <Button label="Ask landlord to acknowledge" variant="secondary" onPress={askLandlord} />
+          </View>
+        )}
         {summary && (
           <View style={styles.progress}>
             <ProgressBar done={summary.itemsDone} total={summary.itemsTotal} note={`${summary.roomsDone} of ${summary.roomsTotal} rooms`} />
@@ -348,6 +378,8 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, marginTop: -4, marginBottom: 12, marginLeft: 4 },
   stack: { gap: 8 },
   delete: { marginTop: 32 },
+  ack: { gap: 8, marginBottom: 16 },
+  ackText: { fontSize: 15, marginHorizontal: 4 },
   progress: { marginBottom: 16, marginHorizontal: 4 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   tally: { flexDirection: 'row', alignItems: 'center', gap: 4 },
