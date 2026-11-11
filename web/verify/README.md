@@ -1,6 +1,6 @@
 # Verify page
 
-Static page for `unscratched.app/v/<code>`. No build step: the files in this folder are the site.
+Static pages for `unscratched.app/v/<code>` (verify) and `unscratched.app/a/<manifest hash>` (landlord acknowledgement). No build step: the files in this folder are the site.
 
 ## Configure
 
@@ -18,7 +18,9 @@ Serve this folder as the site root on any static host. Asset paths are absolute 
 - Vercel `vercel.json`: `{ "rewrites": [{ "source": "/v/:code*", "destination": "/index.html" }] }`
 - Cloudflare Pages `_redirects`: `/v/*  /index.html  200`
 
-`/?code=<code>` works without any rewrite.
+Rewrite `/a/*` to `/acknowledge.html` the same way (Netlify and Cloudflare: `/a/*  /acknowledge.html  200`).
+
+`/?code=<code>` and `/acknowledge.html?h=<hash>` work without any rewrite.
 
 ## Try it locally
 
@@ -27,4 +29,4 @@ cd web/verify && python3 -m http.server 8000
 # open http://localhost:8000/?code=abcdef012345
 ```
 
-Lookups need a Supabase project with the `lookup_receipt` RPC.
+Lookups need a Supabase project with the `lookup_receipt` RPC; acknowledgements need `acknowledge_report` and `lookup_acknowledgements`.

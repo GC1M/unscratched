@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Acknowledge an Unscratched report</title>
+    <link rel="stylesheet" href="/verify.css" />
+    <script type="module" src="/acknowledge.js"></script>
+  </head>
+  <body>
+    <main>
+      <h1>Acknowledge an Unscratched report</h1>
+      <p id="intro">Loading...</p>
+
+      <ul id="existing"></ul>
+
+      <form id="ack-form" hidden>
+        <label for="name">Your name (landlord or manager)</label>
+        <div class="row">
+          <input id="name" name="name" type="text" autocomplete="name" maxlength="100" aria-describedby="name-hint" />
+          <button type="submit">Acknowledge</button>
+        </div>
+        <p id="name-hint" class="hint">
+          This confirms you received the report, not that you agree with it. Only your name and the time are stored,
+          next to the report's fingerprint.
+        </p>
+      </form>
+
+      <p id="result" role="status" aria-live="polite"></p>
+    </main>
+  </body>
+</html>
