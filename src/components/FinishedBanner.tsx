@@ -1,14 +1,16 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { useT } from '@/i18n/context';
+import { shortDate } from '@/lib/format';
 import { radius, useTheme } from '@/theme';
 
 /** Shown on read-only screens of a finished inspection. */
 export function FinishedBanner({ finishedAt }: { finishedAt: number }) {
   const { c } = useTheme();
-  const date = new Date(finishedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const { t, locale } = useT();
   return (
     <View style={[styles.banner, { backgroundColor: c.paper }]}>
-      <Text style={[styles.text, { color: c.ink }]}>Finished {date}. Locked so the report can be trusted.</Text>
+      <Text style={[styles.text, { color: c.ink }]}>{t('common.finishedBanner', { date: shortDate(finishedAt, locale) })}</Text>
     </View>
   );
 }

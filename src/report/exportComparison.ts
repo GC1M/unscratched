@@ -3,6 +3,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { translator, type Lang } from '@/i18n';
 import { syncReceipts } from '@/receipts/queue';
 
 import { buildComparison } from './comparison';
@@ -18,24 +19,24 @@ export function comparisonFileName(address: string, at: number, kind: 'compariso
   return `Unscratched-${kind}-${slug(address, 'report')}-${date}.pdf`;
 }
 
-async function sharePdf(db: SQLiteDatabase, moveOutId: number, kind: 'comparison' | 'dispute-letter'): Promise<string> {
+async function sharePdf(db: SQLiteDatabase, moveOutId: number, kind: 'comparison' | 'dispute-letter', lang: Lang): Promise<string> {
   if (!(await Sharing.isAvailableAsync())) throw new Error('Sharing is not available on this device.');
   await syncReceipts(db); // best effort, so the PDF has the latest receipts
   const moveOut = await loadReportData(db, moveOutId, null);
   const moveInId = moveOut.inspection.linked_move_in_id;
   if (moveInId == null) throw new Error('This inspection is not linked to a move-in.');
   const comparison = buildComparison(await loadReportData(db, moveInId, null), moveOut);
-  const html = kind === 'comparison' ? buildComparisonHtml(comparison) : buildDisputeLetterHtml(comparison);
+  const html = kind === 'comparison' ? buildComparisonHtml(comparison, { lang }) : buildDisputeLetterHtml(comparison, { lang });
   const { uri } = await Print.printToFileAsync({ html });
   const pdf = new File(Paths.cache, comparisonFileName(moveOut.inspection.address, comparison.generatedAt, kind));
   await new File(uri).move(pdf, { overwrite: true });
-  const dialogTitle = kind === 'comparison' ? 'Share comparison report' : 'Share dispute letter';
+  const dialogTitle = translator(lang)(kind === 'comparison' ? 'share.comparison' : 'share.letter');
   await Sharing.shareAsync(pdf.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle });
   return pdf.uri;
 }
 
 /** Builds the move-in vs move-out comparison PDF for a move-out inspection and opens the share sheet. Returns the PDF uri. */
-export const exportComparison = (db: SQLiteDatabase, moveOutId: number) => sharePdf(db, moveOutId, 'comparison');
+export const exportComparison = (db: SQLiteDatabase, moveOutId: number, lang: Lang = 'en') => sharePdf(db, moveOutId, 'comparison', lang);
 
 /** Builds a deposit-return letter prefilled from the comparison and opens the share sheet. Returns the PDF uri. */
-export const exportDisputeLetter = (db: SQLiteDatabase, moveOutId: number) => sharePdf(db, moveOutId, 'dispute-letter');
+export const exportDisputeLetter = (db: SQLiteDatabase, moveOutId: number, lang: Lang = 'en') => sharePdf(db, moveOutId, 'dispute-letter', lang);

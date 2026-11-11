@@ -7,11 +7,13 @@ import { Button } from '@/components/Button';
 import { Problem, errorMessage } from '@/components/Status';
 import { getDb } from '@/db/client';
 import { getFinishedAt, getItem } from '@/db/repo';
+import { useT } from '@/i18n/context';
 import { capturePhoto } from '@/lib/photos';
 import { useTheme } from '@/theme';
 
 export default function CameraScreen() {
   const { c } = useTheme();
+  const { t } = useT();
   const { itemId } = useLocalSearchParams<{ itemId: string }>();
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
@@ -26,11 +28,11 @@ export default function CameraScreen() {
       const db = await getDb();
       const id = Number(itemId);
       const [item, finishedAt] = await Promise.all([getItem(db, id), getFinishedAt(db, 'item', id)]);
-      if (!item) setRefusal({ title: 'Item not found', body: 'It may have been deleted.' });
-      else if (finishedAt != null) setRefusal({ title: 'This inspection is finished', body: 'Photos are locked so the report can be trusted.' });
+      if (!item) setRefusal({ title: t('common.itemNotFound'), body: t('common.mayBeDeleted') });
+      else if (finishedAt != null) setRefusal({ title: t('camera.finishedTitle'), body: t('camera.finishedBody') });
       setChecked(true);
-    })().catch((e: unknown) => setRefusal({ title: 'Could not open the camera', body: errorMessage(e) }));
-  }, [itemId]);
+    })().catch((e: unknown) => setRefusal({ title: t('camera.openError'), body: errorMessage(e) }));
+  }, [itemId, t]);
 
   async function onShutter() {
     if (!camera.current || saving) return;
@@ -41,7 +43,7 @@ export default function CameraScreen() {
       router.back();
     } catch (e) {
       setSaving(false);
-      Alert.alert('Could not save photo', e instanceof Error ? e.message : String(e));
+      Alert.alert(t('camera.saveError'), e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -59,11 +61,10 @@ export default function CameraScreen() {
     body = (
       <View style={[styles.center, styles.message, { backgroundColor: c.plaster }]}>
         <Text style={[styles.text, { color: c.ink }]}>
-          Unscratched needs the camera to photograph your rental&apos;s condition. Photos are taken in the app so
-          they can be trusted.
-          {canAsk ? '' : ' Camera access is turned off. Turn it on in Settings.'}
+          {t('camera.why')}
+          {canAsk ? '' : t('camera.off')}
         </Text>
-        <Button label={canAsk ? 'Allow camera' : 'Open Settings'} onPress={canAsk ? requestPermission : () => Linking.openSettings()} />
+        <Button label={t(canAsk ? 'camera.allow' : 'camera.openSettings')} onPress={canAsk ? requestPermission : () => Linking.openSettings()} />
       </View>
     );
   } else {
@@ -72,7 +73,7 @@ export default function CameraScreen() {
         <CameraView ref={camera} facing="back" style={StyleSheet.absoluteFill} />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Take photo"
+          accessibilityLabel={t('camera.take')}
           accessibilityState={{ disabled: saving }}
           disabled={saving}
           onPress={onShutter}
@@ -86,7 +87,7 @@ export default function CameraScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Take photo', headerLargeTitle: false, headerTransparent: true, headerTintColor: '#fff' }} />
+      <Stack.Screen options={{ title: t('camera.take'), headerLargeTitle: false, headerTransparent: true, headerTintColor: '#fff' }} />
       {body}
     </>
   );

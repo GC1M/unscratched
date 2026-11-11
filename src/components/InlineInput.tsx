@@ -1,6 +1,7 @@
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/Button';
+import { useT } from '@/i18n/context';
 import { useTheme } from '@/theme';
 
 interface Props {
@@ -14,8 +15,9 @@ interface Props {
 }
 
 /** A row-sized text input with Save and Cancel, used for inline add and rename. */
-export function InlineInput({ value, onChangeText, onSubmit, onCancel, placeholder, a11y, submitLabel = 'Save' }: Props) {
+export function InlineInput({ value, onChangeText, onSubmit, onCancel, placeholder, a11y, submitLabel }: Props) {
   const { c } = useTheme();
+  const { t } = useT();
   return (
     <View style={styles.row}>
       <TextInput
@@ -28,8 +30,8 @@ export function InlineInput({ value, onChangeText, onSubmit, onCancel, placehold
         onSubmitEditing={onSubmit}
         autoFocus
       />
-      <Button label={submitLabel} variant="tertiary" onPress={onSubmit} />
-      <Button label="Cancel" variant="tertiary" onPress={onCancel} />
+      <Button label={submitLabel ?? t('common.save')} variant="tertiary" onPress={onSubmit} />
+      <Button label={t('common.cancel')} variant="tertiary" onPress={onCancel} />
     </View>
   );
 }

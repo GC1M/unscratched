@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 
 import { Button } from '@/components/Button';
-import { CONDITION_LABEL, ConditionMark } from '@/components/ConditionMark';
+import { ConditionMark } from '@/components/ConditionMark';
 import { FinishedBanner } from '@/components/FinishedBanner';
 import { SectionLabel } from '@/components/Group';
 import { Screen } from '@/components/Screen';
@@ -11,6 +11,7 @@ import { Loading, Problem, errorMessage } from '@/components/Status';
 import { getDb } from '@/db/client';
 import { getFinishedAt, getItem, getRoom, getSetting, listItems, listPhotos, setCondition, setNote } from '@/db/repo';
 import type { Condition, Item, Photo } from '@/db/types';
+import { useT } from '@/i18n/context';
 import { findMoveInItem } from '@/lib/moveInMatch';
 import { photoUri } from '@/lib/photos';
 import { nextUnchecked } from '@/lib/next';
@@ -27,6 +28,7 @@ type SuggestState = { photoId: number } & (
 
 export default function ItemScreen() {
   const { c } = useTheme();
+  const { t } = useT();
   const itemId = Number(useLocalSearchParams<{ id: string }>().id);
   // undefined while loading, null when it no longer exists.
   const [item, setItem] = useState<Item | null | undefined>(undefined);
@@ -102,7 +104,7 @@ export default function ItemScreen() {
     } catch (e) {
       setItem(item);
       setSiblings((s) => s.map((i) => (i.id === itemId ? item : i)));
-      Alert.alert('Could not save condition', errorMessage(e));
+      Alert.alert(t('item.saveConditionError'), errorMessage(e));
     }
   }
 
@@ -132,7 +134,7 @@ export default function ItemScreen() {
       await setNote(db, itemId, nextNote);
       await setCondition(db, itemId, condition);
     } catch (e) {
-      Alert.alert('Could not save suggestion', errorMessage(e));
+      Alert.alert(t('item.saveSuggestionError'), errorMessage(e));
       load();
     }
   }
@@ -144,7 +146,7 @@ export default function ItemScreen() {
       await setNote(await getDb(), itemId, note.trim() === '' ? null : note);
       return true;
     } catch (e) {
-      Alert.alert('Could not save note', errorMessage(e));
+      Alert.alert(t('item.saveNoteError'), errorMessage(e));
       return false;
     }
   }
@@ -177,9 +179,9 @@ export default function ItemScreen() {
     return (
       <Screen>
         {error ? (
-          <Problem title="Could not load this item" body={errorMessage(error)} onRetry={() => load()} />
+          <Problem title={t('item.loadError')} body={errorMessage(error)} onRetry={() => load()} />
         ) : (
-          <Problem title="Item not found" body="It may have been deleted." />
+          <Problem title={t('common.itemNotFound')} body={t('common.mayBeDeleted')} />
         )}
       </Screen>
     );
@@ -196,18 +198,18 @@ export default function ItemScreen() {
       <Screen
         floating={
           locked ? null : next ? (
-            <Button label={`Next: ${next.name}`} trailing={`${left} left`} onPress={() => go(() => router.replace(`/item/${next.id}`))} />
+            <Button label={t('item.next', { name: next.name })} trailing={t('common.left', { n: left })} onPress={() => go(() => router.replace(`/item/${next.id}`))} />
           ) : (
-            <Button label={`Done with ${roomName}`} variant="secondary" onPress={() => go(() => router.back())} />
+            <Button label={t('item.doneWith', { name: roomName })} variant="secondary" onPress={() => go(() => router.back())} />
           )
         }
       >
         <Text style={[styles.subtitle, { color: c.ink60 }]}>
-          {roomName}, item {position} of {siblings.length}
+          {t('item.position', { room: roomName, n: position, total: siblings.length })}
         </Text>
         {locked && <FinishedBanner finishedAt={finishedAt} />}
 
-        <SectionLabel>Condition</SectionLabel>
+        <SectionLabel>{t('common.condition')}</SectionLabel>
         <View style={[styles.track, stacked && styles.stacked, { backgroundColor: c.hair }]} accessibilityRole="radiogroup">
           {CONDITIONS.map((value) => {
             const selected = item?.condition === value;
@@ -215,7 +217,7 @@ export default function ItemScreen() {
               <Pressable
                 key={value}
                 accessibilityRole="radio"
-                accessibilityLabel={CONDITION_LABEL[value]}
+                accessibilityLabel={t(`condition.${value}`)}
                 accessibilityState={{ selected, disabled: locked }}
                 disabled={locked}
                 onPress={() => onPick(value)}
@@ -227,17 +229,17 @@ export default function ItemScreen() {
                 ]}
               >
                 <ConditionMark condition={value} size={10} />
-                <Text style={[styles.optionText, { color: selected ? tint[value] : c.ink }]}>{CONDITION_LABEL[value]}</Text>
+                <Text style={[styles.optionText, { color: selected ? tint[value] : c.ink }]}>{t(`condition.${value}`)}</Text>
               </Pressable>
             );
           })}
         </View>
 
-        <SectionLabel>Note</SectionLabel>
+        <SectionLabel>{t('common.note')}</SectionLabel>
         <TextInput
-          accessibilityLabel="Note"
+          accessibilityLabel={t('common.note')}
           multiline
-          placeholder="Describe any marks, damage, or wear"
+          placeholder={t('item.notePlaceholder')}
           placeholderTextColor={c.ink60}
           value={note}
           onChangeText={setNoteText}
@@ -246,11 +248,11 @@ export default function ItemScreen() {
           style={[styles.note, { backgroundColor: c.paper, color: c.ink }]}
         />
 
-        <SectionLabel>Photos</SectionLabel>
+        <SectionLabel>{t('item.photos')}</SectionLabel>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photos}>
           {photos.map((p, i) => {
             const image = (
-              <Image key={p.id} accessible accessibilityRole="image" accessibilityLabel={`Photo ${i + 1}`} source={{ uri: photoUri(p) }} style={[styles.thumb, { backgroundColor: c.hair }]} />
+              <Image key={p.id} accessible accessibilityRole="image" accessibilityLabel={t('item.photo', { n: i + 1 })} source={{ uri: photoUri(p) }} style={[styles.thumb, { backgroundColor: c.hair }]} />
             );
             if (!suggestOn || locked) return image;
             return (
@@ -258,12 +260,12 @@ export default function ItemScreen() {
                 {image}
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Suggest note for photo ${i + 1}`}
+                  accessibilityLabel={t('item.suggestFor', { n: i + 1 })}
                   disabled={suggestion?.status === 'loading'}
                   onPress={() => onSuggest(p)}
                   style={({ pressed }) => [styles.suggestLink, pressed && { opacity: 0.6 }]}
                 >
-                  <Text style={[styles.suggestLinkText, { color: c.ink }]}>Suggest note</Text>
+                  <Text style={[styles.suggestLinkText, { color: c.ink }]}>{t('item.suggest')}</Text>
                 </Pressable>
               </View>
             );
@@ -271,12 +273,12 @@ export default function ItemScreen() {
           {!locked && (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Add photo"
+              accessibilityLabel={t('item.addPhoto')}
               onPress={() => router.push(`/camera/${itemId}`)}
               style={({ pressed }) => [styles.add, { backgroundColor: c.paper }, pressed && { opacity: 0.8 }]}
             >
               <Text style={[styles.addPlus, { color: c.ink }]}>+</Text>
-              <Text style={[styles.addText, { color: c.ink60 }]}>Add photo</Text>
+              <Text style={[styles.addText, { color: c.ink60 }]}>{t('item.addPhoto')}</Text>
             </Pressable>
           )}
         </ScrollView>
@@ -285,31 +287,31 @@ export default function ItemScreen() {
             {suggestion.status === 'loading' ? (
               <View style={styles.suggestRow}>
                 <ActivityIndicator color={c.ink60} />
-                <Text style={[styles.suggestMeta, { color: c.ink60 }]}>Getting a suggestion</Text>
+                <Text style={[styles.suggestMeta, { color: c.ink60 }]}>{t('item.suggesting')}</Text>
               </View>
             ) : suggestion.status === 'error' ? (
               <>
                 <Text style={[styles.suggestText, { color: c.ink }]}>{suggestion.message}</Text>
                 <View style={styles.suggestRow}>
-                  <Button label="Try again" variant="secondary" onPress={() => onSuggest(photos.find((p) => p.id === suggestion.photoId)!)} style={styles.suggestButton} />
-                  <Button label="Dismiss" variant="tertiary" onPress={() => setSuggestion(null)} style={styles.suggestButton} />
+                  <Button label={t('common.tryAgain')} variant="secondary" onPress={() => onSuggest(photos.find((p) => p.id === suggestion.photoId)!)} style={styles.suggestButton} />
+                  <Button label={t('item.dismiss')} variant="tertiary" onPress={() => setSuggestion(null)} style={styles.suggestButton} />
                 </View>
               </>
             ) : (
               <>
-                <Text style={[styles.suggestMeta, { color: c.ink60 }]}>AI suggestion. Check it before applying.</Text>
+                <Text style={[styles.suggestMeta, { color: c.ink60 }]}>{t('item.aiSuggestion')}</Text>
                 <Text style={[styles.suggestText, { color: c.ink }]}>{suggestion.value.caption}</Text>
-                <Text style={[styles.suggestMeta, { color: c.ink60 }]}>Condition: {CONDITION_LABEL[toCondition(suggestion.value.severity)]}</Text>
+                <Text style={[styles.suggestMeta, { color: c.ink60 }]}>{t('item.suggestedCondition', { condition: t(`condition.${toCondition(suggestion.value.severity)}`) })}</Text>
                 <View style={styles.suggestRow}>
-                  <Button label="Apply" onPress={() => onApply(suggestion.value)} style={styles.suggestButton} />
-                  <Button label="Discard" variant="secondary" onPress={() => setSuggestion(null)} style={styles.suggestButton} />
+                  <Button label={t('item.apply')} onPress={() => onApply(suggestion.value)} style={styles.suggestButton} />
+                  <Button label={t('item.discard')} variant="secondary" onPress={() => setSuggestion(null)} style={styles.suggestButton} />
                 </View>
               </>
             )}
           </View>
         )}
         {moveInPhotos && (
-          <Button label="View move-in photo" variant="secondary" onPress={() => setPeekOpen(true)} style={styles.peekButton} />
+          <Button label={t('item.viewMoveIn')} variant="secondary" onPress={() => setPeekOpen(true)} style={styles.peekButton} />
         )}
 
         <Modal visible={peekOpen} animationType="slide" onRequestClose={() => setPeekOpen(false)}>
@@ -321,7 +323,7 @@ export default function ItemScreen() {
                     key={p.id}
                     accessible
                     accessibilityRole="image"
-                    accessibilityLabel={`Move-in photo ${i + 1} of ${moveInPhotos.length}`}
+                    accessibilityLabel={t('item.moveInPhoto', { n: i + 1, total: moveInPhotos.length })}
                     source={{ uri: photoUri(p) }}
                     resizeMode="contain"
                     style={{ width, height: '100%' }}
@@ -329,10 +331,10 @@ export default function ItemScreen() {
                 ))}
               </ScrollView>
             ) : (
-              <Text style={styles.peekEmpty}>No move-in photo for this item</Text>
+              <Text style={styles.peekEmpty}>{t('item.noMoveInPhoto')}</Text>
             )}
-            <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => setPeekOpen(false)} style={styles.peekClose}>
-              <Text style={styles.peekCloseText}>Close</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('common.close')} onPress={() => setPeekOpen(false)} style={styles.peekClose}>
+              <Text style={styles.peekCloseText}>{t('common.close')}</Text>
             </Pressable>
           </View>
         </Modal>

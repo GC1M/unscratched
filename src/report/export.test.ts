@@ -56,7 +56,7 @@ test('prints the report html, renames the pdf, then shares it as a pdf', async (
   const pdf = 'file:///cache/Unscratched-move-in-12-main-st-apt-3-2026-01-20.pdf';
   await expect(exportReport(db, 7, ack)).resolves.toBe(pdf);
   expect(loadReportData).toHaveBeenCalledWith(db, 7, ack);
-  expect(buildReportHtml).toHaveBeenCalledWith(data);
+  expect(buildReportHtml).toHaveBeenCalledWith(data, { lang: 'en' });
   expect(Print.printToFileAsync).toHaveBeenCalledWith({ html: '<html>report</html>' });
   expect(mockMoves).toEqual([['file:///cache/Print/abc.pdf', pdf, { overwrite: true }]]);
   expect(Sharing.shareAsync).toHaveBeenCalledWith(pdf, {

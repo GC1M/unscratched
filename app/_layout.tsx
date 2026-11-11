@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
 import { getDb } from '@/db/client';
+import { LanguageProvider } from '@/i18n/context';
 import { OnboardingProvider, useOnboarding } from '@/onboarding';
 import { syncReceipts } from '@/receipts/queue';
 import { serif, ThemeProvider, useTheme } from '@/theme';
@@ -62,9 +63,11 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
   return (
     <ThemeProvider>
-      <OnboardingProvider>
-        <Navigator />
-      </OnboardingProvider>
+      <LanguageProvider>
+        <OnboardingProvider>
+          <Navigator />
+        </OnboardingProvider>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

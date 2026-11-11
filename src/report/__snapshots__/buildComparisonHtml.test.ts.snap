@@ -1,5 +1,73 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
+exports[`Spanish: snapshot, translated change column, and the English-only deposit summary is labelled 1`] = `
+"<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Comparación de entrada y salida</title>
+<style>
+@page { margin: 16mm; }
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #111; font-size: 11pt; line-height: 1.4; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h1 { font-size: 22pt; margin: 0 0 12pt; }
+h2 { font-size: 16pt; margin: 0 0 8pt; }
+h3 { font-size: 12pt; margin: 12pt 0 4pt; }
+.cover dl { display: grid; grid-template-columns: max-content 1fr; gap: 4pt 12pt; margin: 0 0 16pt; }
+.cover dt { font-weight: 600; }
+.cover dd { margin: 0; }
+.room { page-break-before: always; }
+table { width: 100%; border-collapse: collapse; margin: 0 0 12pt; page-break-inside: avoid; }
+th, td { border: 1px solid #ccc; padding: 4pt 6pt; text-align: left; vertical-align: top; }
+th { background: #f2f2f2; }
+tr.worse td { background: #fde2e1; color: #b3261e; font-weight: 600; border-top: 2px solid #b3261e; border-bottom: 2px solid #b3261e; }
+.item { page-break-inside: avoid; break-inside: avoid; }
+.pair { display: flex; gap: 8pt; margin: 0 0 8pt; page-break-inside: avoid; break-inside: avoid; }
+.card { width: calc((100% - 8pt) / 2); border: 1px solid #ccc; padding: 4pt; font-size: 9pt; }
+.card img { display: block; width: 100%; height: auto; }
+.missing { display: flex; align-items: center; justify-content: center; height: 120pt; background: #f2f2f2; color: #666; }
+.hash { font-family: Menlo, Consolas, monospace; }
+footer { margin-top: 24pt; font-size: 8pt; color: #666; }
+</style>
+</head>
+<body>
+<section class="cover">
+<h1>Comparación de entrada y salida</h1>
+<dl>
+<dt>Dirección</dt><dd>12 Elm St</dd>
+<dt>Unidad</dt><dd>4B</dd>
+<dt>Entrada terminada</dt><dd>2026-01-02T11:00:00.000Z</dd>
+<dt>Salida terminada</dt><dd>2027-01-02T11:00:00.000Z</dd>
+<dt>Elementos que empeoraron</dt><dd>1</dd>
+<dt>Generado</dt><dd>2027-01-03T09:00:00.000Z</dd>
+<dt>Verificación de entrada</dt><dd>Verificación pendiente</dd>
+<dt>Verificación de salida</dt><dd>Código de verificación: abcdef012345<br>unscratched.app/v/abcdef012345</dd>
+</dl>
+<p>Las filas marcadas como "Peor" son elementos cuyo estado empeoró entre la entrada y la salida. Las fotos se tomaron en la app Unscratched; se incluye la huella digital SHA-256 de cada foto para poder verificar los archivos más adelante.</p>
+<p class="deposit">In California, landlords generally have 21 days after move-out to return the deposit. Itemized statement and any refund are both due within 21 days. Vence alrededor del 23 ene 2027. Fuente (resumen en inglés): <a href="https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CIV&amp;sectionNum=1950.5">https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CIV&amp;sectionNum=1950.5</a>. No es asesoramiento legal.</p>
+</section>
+<section class="room">
+<h2>Kitchen</h2>
+<table><thead><tr><th>Elemento</th><th>Estado a la entrada</th><th>Estado a la salida</th><th>Cambio</th></tr></thead><tbody>
+<tr class="worse"><td>Oven</td><td>Bueno</td><td>Dañado</td><td>Peor</td></tr>
+<tr><td>Sink</td><td>Regular</td><td>Bueno</td><td>Mejor</td></tr>
+<tr><td>Floor</td><td>Regular</td><td>Regular</td><td>Igual</td></tr>
+<tr><td>Toaster</td><td>Bueno</td><td>No está en la salida</td><td>No está en la salida</td></tr>
+<tr><td>Fridge</td><td>No está en la entrada</td><td>Dañado</td><td>No está en la entrada</td></tr>
+<tr><td>Tub</td><td>Sin registrar</td><td>Dañado</td><td>Sin registrar</td></tr>
+</tbody></table>
+<div class="item"><h3>Oven (Peor)</h3>
+<div class="pair"><div class="card"><img src="data:image/jpeg;base64,AAA" alt="Oven - entrada"><div>Oven - entrada</div><div>2026-01-02T10:01:00.000Z</div><div>Hora del servidor: 2026-01-02T12:00:00.000Z</div><div class="hash">SHA-256: 111111111111</div></div><div class="card"><img src="data:image/jpeg;base64,BBB" alt="Oven - salida"><div>Oven - salida</div><div>2026-01-02T10:02:00.000Z</div><div>Hora del servidor: 2027-01-02T12:00:00.000Z</div><div class="hash">SHA-256: 222222222222</div></div></div></div>
+<div class="pair"><div class="card"><div class="missing">Sin foto de entrada</div></div><div class="card"><div class="missing">Foto no disponible</div><div>Oven - salida</div><div>2026-01-02T10:03:00.000Z</div><div>Comprobante pendiente</div><div class="hash">SHA-256: 333333333333</div></div></div>
+<div class="item"><h3>Sink</h3>
+<div class="pair"><div class="card"><img src="data:image/jpeg;base64,DDD" alt="Sink - entrada"><div>Sink - entrada</div><div>2026-01-02T10:04:00.000Z</div><div>Comprobante pendiente</div><div class="hash">SHA-256: 444444444444</div></div><div class="card"><img src="data:image/jpeg;base64,EEE" alt="Sink - salida"><div>Sink - salida</div><div>2026-01-02T10:05:00.000Z</div><div>Comprobante pendiente</div><div class="hash">SHA-256: 555555555555</div></div></div></div>
+</section>
+<footer><p>No es asesoramiento legal.</p><p>Hecho con Unscratched (gratis)</p></footer>
+</body>
+</html>
+"
+`;
+
 exports[`escapes user text on the cover, in room and item names, and in img alt 1`] = `
 "<!DOCTYPE html>
 <html lang="en">

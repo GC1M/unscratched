@@ -10,7 +10,8 @@ import { Loading, Problem, errorMessage } from '@/components/Status';
 import { getDb } from '@/db/client';
 import { listInspectionItems, listInspections, listRooms } from '@/db/repo';
 import type { Inspection } from '@/db/types';
-import { kindLabel, shortDate } from '@/lib/format';
+import { useT } from '@/i18n/context';
+import { shortDate } from '@/lib/format';
 import { nextRoom } from '@/lib/next';
 import { progress, type Progress } from '@/lib/progress';
 import { radius, serif, useTheme } from '@/theme';
@@ -21,6 +22,8 @@ const address = (i: Inspection) => `${i.address}${i.unit ? `, ${i.unit}` : ''}`;
 
 export default function Home() {
   const { c } = useTheme();
+  const { t, locale } = useT();
+  const kind = (i: Inspection) => t(`kind.${i.kind}`);
   const [inspections, setInspections] = useState<HomeRow[] | null>(null);
   const [error, setError] = useState<unknown>(null);
 
@@ -56,7 +59,7 @@ export default function Home() {
   if (error)
     return (
       <Screen>
-        <Problem title="Could not load inspections" body={errorMessage(error)} onRetry={() => load()} />
+        <Problem title={t('home.loadError')} body={errorMessage(error)} onRetry={() => load()} />
       </Screen>
     );
   if (!inspections)
@@ -72,72 +75,72 @@ export default function Home() {
     <>
       <Stack.Screen>
         <Stack.Toolbar placement="right">
-          <Stack.Toolbar.Button icon="plus" accessibilityLabel="New inspection" onPress={() => router.push('/inspection/new')} />
-          <Stack.Toolbar.Button icon="gearshape" accessibilityLabel="Settings" onPress={() => router.push('/settings')} />
+          <Stack.Toolbar.Button icon="plus" accessibilityLabel={t('home.newInspection')} onPress={() => router.push('/inspection/new')} />
+          <Stack.Toolbar.Button icon="gearshape" accessibilityLabel={t('home.settings')} onPress={() => router.push('/settings')} />
         </Stack.Toolbar>
       </Stack.Screen>
       <Screen
         floating={
           hero ? (
             <Button
-              label="Continue inspection"
-              trailing={hero.next ? `${hero.next} next` : undefined}
-              a11y={`Continue inspection, ${address(hero)}`}
+              label={t('home.continue')}
+              trailing={hero.next ? t('home.nextRoom', { name: hero.next }) : undefined}
+              a11y={t('home.continueA11y', { address: address(hero) })}
               onPress={() => router.push(`/inspection/${hero.id}`)}
             />
           ) : (
-            <Button label="New move-in inspection" onPress={() => router.push('/inspection/new')} />
+            <Button label={t('home.newMoveIn')} onPress={() => router.push('/inspection/new')} />
           )
         }
       >
         {hero ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Continue ${address(hero)}`}
+            accessibilityLabel={t('home.continueAddress', { address: address(hero) })}
             onPress={() => router.push(`/inspection/${hero.id}`)}
             style={({ pressed }) => [styles.hero, { backgroundColor: c.paper }, pressed && { opacity: 0.85 }]}
           >
             <Text style={[styles.heroAddress, { color: c.ink }]}>{address(hero)}</Text>
             <Text style={[styles.heroMeta, { color: c.ink60 }]}>
-              {kindLabel(hero.kind)}, started {shortDate(hero.started_at)}
+              {t('common.kindStarted', { kind: kind(hero), date: shortDate(hero.started_at, locale) })}
             </Text>
             {hero.progress && (
               <ProgressBar
                 done={hero.progress.itemsDone}
                 total={hero.progress.itemsTotal}
-                note={`${hero.progress.roomsDone} of ${hero.progress.roomsTotal} rooms`}
+                note={t('common.ofRooms', { done: hero.progress.roomsDone, total: hero.progress.roomsTotal })}
               />
             )}
           </Pressable>
         ) : inspections.length === 0 ? (
           <View style={styles.empty}>
             <Text accessibilityRole="header" style={[styles.emptyTitle, { color: c.ink }]}>
-              No inspections yet
+              {t('home.emptyTitle')}
             </Text>
             <Text style={[styles.emptyBody, { color: c.ink60 }]}>
-              Walk each room before you unpack. About twenty minutes, and the report protects your deposit.
+              {t('home.emptyBody')}
             </Text>
           </View>
         ) : null}
         {rest.length > 0 && (
           <>
-            <SectionLabel>Also in progress</SectionLabel>
+            <SectionLabel>{t('home.alsoInProgress')}</SectionLabel>
             <Group>
               {rest.map((i, idx) => (
                 <Row
                   key={i.id}
                   first={idx === 0}
                   onPress={() => router.push(`/inspection/${i.id}`)}
-                  a11y={`${address(i)}, ${kindLabel(i.kind)}`}
+                  a11y={`${address(i)}, ${kind(i)}`}
                   trailing={
                     <Text style={[styles.count, { color: c.ink60 }]}>
-                      {i.progress?.roomsDone} of {i.progress?.roomsTotal} rooms
+                      {t('common.ofRooms', { done: i.progress?.roomsDone ?? 0, total: i.progress?.roomsTotal ?? 0 })}
                     </Text>
                   }
                 >
                   <RowTitle serif>{address(i)}</RowTitle>
                   <RowMeta>
-                    {kindLabel(i.kind)}, started {shortDate(i.started_at)}
+                    {t('common.kindStarted', { kind: kind(i), date: shortDate(i.started_at, locale) })}
                   </RowMeta>
                 </Row>
               ))}
@@ -146,23 +149,23 @@ export default function Home() {
         )}
         {finished.length > 0 && (
           <>
-            <SectionLabel>Finished</SectionLabel>
+            <SectionLabel>{t('home.finished')}</SectionLabel>
             <Group>
               {finished.map((i, idx) => (
                 <Row
                   key={i.id}
                   first={idx === 0}
                   onPress={() => router.push(`/inspection/${i.id}`)}
-                  a11y={`${address(i)}, ${kindLabel(i.kind)}, finished`}
+                  a11y={t('home.finishedA11y', { address: address(i), kind: kind(i) })}
                   trailing={
                     <View style={[styles.tag, { backgroundColor: c.plaster }]}>
-                      <Text style={[styles.tagText, { color: c.ink60 }]}>Report ready</Text>
+                      <Text style={[styles.tagText, { color: c.ink60 }]}>{t('home.reportReady')}</Text>
                     </View>
                   }
                 >
                   <RowTitle serif>{address(i)}</RowTitle>
                   <RowMeta>
-                    {kindLabel(i.kind)}, finished {shortDate(i.finished_at ?? 0)}
+                    {t('common.kindFinished', { kind: kind(i), date: shortDate(i.finished_at ?? 0, locale) })}
                   </RowMeta>
                 </Row>
               ))}

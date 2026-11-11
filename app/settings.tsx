@@ -7,18 +7,27 @@ import { Group, Row, RowMeta, RowTitle, SectionLabel } from '@/components/Group'
 import { Screen } from '@/components/Screen';
 import { getDb } from '@/db/client';
 import { getSetting, setSetting } from '@/db/repo';
+import type { Key } from '@/i18n';
+import { useT, type LangPref } from '@/i18n/context';
 import { SUGGEST_SETTING } from '@/lib/suggestNote';
 import { useTheme, useThemePref, type ThemePref } from '@/theme';
 
-const APPEARANCE: { value: ThemePref; label: string; meta?: string }[] = [
-  { value: 'system', label: 'Match iPhone', meta: 'Follows the system setting' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
+const APPEARANCE: { value: ThemePref; label: Key; meta?: Key }[] = [
+  { value: 'system', label: 'settings.matchIphone', meta: 'settings.followsSystem' },
+  { value: 'light', label: 'settings.light' },
+  { value: 'dark', label: 'settings.dark' },
+];
+
+// Language names stay in their own language so a user can always find theirs.
+const LANGUAGES: { value: LangPref; label: string }[] = [
+  { value: 'en', label: 'English' },
+  { value: 'es', label: 'Español' },
 ];
 
 export default function Settings() {
   const { c } = useTheme();
   const { pref, setPref } = useThemePref();
+  const { t, pref: langPref, setPref: setLangPref } = useT();
   const [suggest, setSuggest] = useState(false);
 
   useEffect(() => {
@@ -37,48 +46,61 @@ export default function Settings() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Settings', headerLargeTitleStyle: { fontSize: 34, color: c.ink } }} />
+      <Stack.Screen options={{ title: t('settings.title'), headerLargeTitleStyle: { fontSize: 34, color: c.ink } }} />
       <Screen>
-        <SectionLabel>Appearance</SectionLabel>
+        <SectionLabel>{t('settings.appearance')}</SectionLabel>
         <Group>
           {APPEARANCE.map((o, idx) => (
             <Row
               key={o.value}
               first={idx === 0}
               onPress={() => setPref(o.value)}
-              a11y={o.label}
+              a11y={t(o.label)}
               selected={pref === o.value}
               trailing={<Text style={[styles.check, { color: c.ink, opacity: pref === o.value ? 1 : 0 }]}>✓</Text>}
             >
-              <RowTitle>{o.label}</RowTitle>
-              {o.meta && <RowMeta>{o.meta}</RowMeta>}
+              <RowTitle>{t(o.label)}</RowTitle>
+              {o.meta && <RowMeta>{t(o.meta)}</RowMeta>}
             </Row>
           ))}
         </Group>
-        <SectionLabel>Your data</SectionLabel>
+        <SectionLabel>{t('settings.language')}</SectionLabel>
+        <Group>
+          {[{ value: 'system' as const, label: t('settings.matchIphone') }, ...LANGUAGES].map((o, idx) => (
+            <Row
+              key={o.value}
+              first={idx === 0}
+              onPress={() => setLangPref(o.value)}
+              a11y={o.label}
+              selected={langPref === o.value}
+              trailing={<Text style={[styles.check, { color: c.ink, opacity: langPref === o.value ? 1 : 0 }]}>✓</Text>}
+            >
+              <RowTitle>{o.label}</RowTitle>
+              {o.value === 'system' && <RowMeta>{t('settings.followsLanguage')}</RowMeta>}
+            </Row>
+          ))}
+        </Group>
+        <SectionLabel>{t('settings.yourData')}</SectionLabel>
         <Group>
           <Row first>
-            <RowTitle>Photos and reports stay on this phone</RowTitle>
-            <RowMeta>Only photo fingerprints are sent, for timestamp receipts. Back up with iCloud.</RowMeta>
+            <RowTitle>{t('settings.onPhone')}</RowTitle>
+            <RowMeta>{t('settings.onPhoneMeta')}</RowMeta>
           </Row>
           <Row
-            trailing={<Switch accessibilityLabel="Suggest notes from photos" value={suggest} onValueChange={toggleSuggest} />}
+            trailing={<Switch accessibilityLabel={t('settings.suggest')} value={suggest} onValueChange={toggleSuggest} />}
           >
-            <RowTitle>Suggest notes from photos</RowTitle>
-            <RowMeta>
-              Off by default. When on, tapping Suggest note sends a smaller copy of that one photo to our server, which asks
-              an AI model to describe it. The photo is not stored. Suggestions can be wrong, so check before applying.
-            </RowMeta>
+            <RowTitle>{t('settings.suggest')}</RowTitle>
+            <RowMeta>{t('settings.suggestMeta')}</RowMeta>
           </Row>
         </Group>
-        <SectionLabel>About</SectionLabel>
+        <SectionLabel>{t('settings.about')}</SectionLabel>
         <Group>
           <Row first trailing={<Text style={[styles.version, { color: c.ink60 }]}>{Constants.expoConfig?.version ?? ''}</Text>}>
-            <RowTitle>Version</RowTitle>
+            <RowTitle>{t('settings.version')}</RowTitle>
           </Row>
           <Row>
-            <RowTitle>Not legal advice</RowTitle>
-            <RowMeta>Reports document condition. They are not a legal opinion.</RowMeta>
+            <RowTitle>{t('common.notLegalAdvice')}</RowTitle>
+            <RowMeta>{t('settings.notOpinion')}</RowMeta>
           </Row>
         </Group>
       </Screen>

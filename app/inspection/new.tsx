@@ -8,6 +8,7 @@ import { SectionLabel } from '@/components/Group';
 import { Screen } from '@/components/Screen';
 import { getDb } from '@/db/client';
 import { createInspectionFromTemplate, getSetting, setSetting } from '@/db/repo';
+import { useT } from '@/i18n/context';
 import { lookupDepositDeadline } from '@/legal/depositDeadlines';
 import { parseDate } from '@/lib/reminders';
 import { scheduleReminders } from '@/lib/scheduleReminders';
@@ -17,14 +18,11 @@ import { radius, useTheme } from '@/theme';
 const orNull = (s: string) => s.trim() || null;
 
 const REGION_KEY = 'region';
-const REGIONS: { value: Region; label: string }[] = [
-  { value: 'US', label: 'US' },
-  { value: 'UK', label: 'UK' },
-  { value: 'CA', label: 'Canada' },
-];
+const REGIONS: Region[] = ['US', 'UK', 'CA'];
 
 export default function NewInspection() {
   const { c } = useTheme();
+  const { t } = useT();
   const [address, setAddress] = useState('');
   const [unit, setUnit] = useState('');
   const [tenant, setTenant] = useState('');
@@ -41,27 +39,27 @@ export default function NewInspection() {
     getDb()
       .then((db) => getSetting(db, REGION_KEY))
       .then((saved) => {
-        const match = REGIONS.find((r) => r.value === saved);
-        if (match) setRegion(match.value);
+        const match = REGIONS.find((r) => r === saved);
+        if (match) setRegion(match);
       })
       .catch(() => {});
   }, []);
 
   async function submit() {
     if (!address.trim()) {
-      setError('Address is required');
+      setError(t('new.addressRequired'));
       return;
     }
     const moveOutDate = moveOut.trim() ? parseDate(moveOut) : null;
     if (moveOut.trim() && moveOutDate === null) {
-      setDateError('Use a real date like 2026-08-31');
+      setDateError(t('new.dateError'));
       return;
     }
     // The deadline table is US only; a state typed before switching region is ignored.
     const stateText = region === 'US' ? usState.trim() : '';
     const stateRow = stateText ? lookupDepositDeadline(stateText) : undefined;
     if (stateText && !stateRow) {
-      setStateError('Use a two-letter US state code like CA');
+      setStateError(t('new.stateError'));
       return;
     }
     setError(null);
@@ -87,71 +85,72 @@ export default function NewInspection() {
       if (moveOutDate !== null) await scheduleReminders(id, moveOutDate).catch(() => {});
       router.replace(`/inspection/${id}`);
     } catch (e) {
-      setError(`Could not create the inspection: ${String(e)}`);
+      setError(t('new.createError', { error: String(e) }));
       setSaving(false);
     }
   }
 
   return (
     <>
-      <Stack.Screen options={{ title: 'New inspection', headerLargeTitleStyle: { fontSize: 34, color: c.ink } }} />
+      <Stack.Screen options={{ title: t('new.title'), headerLargeTitleStyle: { fontSize: 34, color: c.ink } }} />
       <Screen>
-        <SectionLabel>Address</SectionLabel>
-        <Field value={address} onChangeText={(t) => { setAddress(t); setError(null); }} accessibilityLabel="Address" placeholder="12 Elm Street" />
+        <SectionLabel>{t('new.address')}</SectionLabel>
+        <Field value={address} onChangeText={(t) => { setAddress(t); setError(null); }} accessibilityLabel={t('new.address')} placeholder="12 Elm Street" />
         {error && <Text style={[styles.error, { color: c.damaged }]}>{error}</Text>}
-        <SectionLabel>Unit</SectionLabel>
-        <Field value={unit} onChangeText={setUnit} accessibilityLabel="Unit" placeholder="Optional" />
-        <SectionLabel>Tenant name</SectionLabel>
-        <Field value={tenant} onChangeText={setTenant} accessibilityLabel="Tenant name" placeholder="Optional" />
-        <SectionLabel>Landlord or manager name</SectionLabel>
-        <Field value={landlord} onChangeText={setLandlord} accessibilityLabel="Landlord or manager name" placeholder="Optional" />
-        <SectionLabel>Move-out date (YYYY-MM-DD)</SectionLabel>
+        <SectionLabel>{t('new.unit')}</SectionLabel>
+        <Field value={unit} onChangeText={setUnit} accessibilityLabel={t('new.unit')} placeholder={t('common.optional')} />
+        <SectionLabel>{t('new.tenant')}</SectionLabel>
+        <Field value={tenant} onChangeText={setTenant} accessibilityLabel={t('new.tenant')} placeholder={t('common.optional')} />
+        <SectionLabel>{t('new.landlord')}</SectionLabel>
+        <Field value={landlord} onChangeText={setLandlord} accessibilityLabel={t('new.landlord')} placeholder={t('common.optional')} />
+        <SectionLabel>{t('new.moveOut')}</SectionLabel>
         <Field
           value={moveOut}
           onChangeText={(t) => { setMoveOut(t); setDateError(null); }}
-          placeholder="Optional, for reminders"
+          placeholder={t('new.moveOutPlaceholder')}
           autoCapitalize="none"
-          accessibilityLabel="Move-out date (YYYY-MM-DD)"
+          accessibilityLabel={t('new.moveOut')}
         />
         {dateError && <Text style={[styles.error, { color: c.damaged }]}>{dateError}</Text>}
-        <SectionLabel>Room templates</SectionLabel>
+        <SectionLabel>{t('new.templates')}</SectionLabel>
         <View style={[styles.track, { backgroundColor: c.hair }]} accessibilityRole="radiogroup">
           {REGIONS.map((r) => {
-            const selected = region === r.value;
+            const selected = region === r;
+            const label = t(`new.region.${r}`);
             return (
               <Pressable
-                key={r.value}
+                key={r}
                 accessibilityRole="radio"
-                accessibilityLabel={`${r.label} room templates`}
+                accessibilityLabel={t('new.regionA11y', { region: label })}
                 accessibilityState={{ selected }}
-                onPress={() => setRegion(r.value)}
+                onPress={() => setRegion(r)}
                 style={({ pressed }) => [
                   styles.option,
                   selected && { backgroundColor: c.paper, borderColor: c.ink },
                   pressed && { opacity: 0.8 },
                 ]}
               >
-                <Text style={[styles.optionText, { color: c.ink }]}>{r.label}</Text>
+                <Text style={[styles.optionText, { color: c.ink }]}>{label}</Text>
               </Pressable>
             );
           })}
         </View>
         {region === 'US' && (
           <>
-            <SectionLabel>State (two letters)</SectionLabel>
+            <SectionLabel>{t('new.state')}</SectionLabel>
             <Field
               value={usState}
               onChangeText={(t) => { setUsState(t); setStateError(null); }}
-              placeholder="Optional, for the deposit deadline"
+              placeholder={t('new.statePlaceholder')}
               autoCapitalize="characters"
               autoCorrect={false}
               maxLength={2}
-              accessibilityLabel="State (two letters)"
+              accessibilityLabel={t('new.state')}
             />
             {stateError && <Text style={[styles.error, { color: c.damaged }]}>{stateError}</Text>}
           </>
         )}
-        <Button label="Start inspection" onPress={submit} busy={saving} style={styles.button} />
+        <Button label={t('new.start')} onPress={submit} busy={saving} style={styles.button} />
       </Screen>
     </>
   );

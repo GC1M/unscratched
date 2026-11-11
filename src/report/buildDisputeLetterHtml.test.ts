@@ -72,6 +72,16 @@ test('snapshot of the full letter', () => {
   expect(buildDisputeLetterHtml(fixture(), { formatDate })).toMatchSnapshot();
 });
 
+test('Spanish: snapshot, translated letter text and placeholders', () => {
+  const html = buildDisputeLetterHtml(fixture(), { formatDate, lang: 'es' });
+  expect(html).toMatchSnapshot();
+  expect(html).toContain('<html lang="es">');
+  expect(html).toContain('<strong>No es asesoramiento legal.</strong>');
+  expect(html).toContain('[Monto del depósito]');
+  expect(html).toContain('Atentamente,');
+  expect(html).not.toMatch(/Dear |Sincerely|Deposit amount/);
+});
+
 test('lists every flagged item with room, conditions, and note, and nothing else in the table', () => {
   const html = buildDisputeLetterHtml(fixture(), { formatDate });
   const rows = html.match(/<tr><td>.*<\/tr>/g);

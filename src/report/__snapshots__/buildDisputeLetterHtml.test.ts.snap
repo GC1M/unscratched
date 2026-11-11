@@ -1,5 +1,43 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
+exports[`Spanish: snapshot, translated letter text and placeholders 1`] = `
+"<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Solicitud de devolución del depósito de garantía</title>
+<style>
+@page { margin: 20mm; }
+body { font-family: Georgia, "Times New Roman", serif; color: #111; font-size: 11pt; line-height: 1.5; margin: 0; }
+.disclaimer { border: 2px solid #b3261e; color: #b3261e; padding: 6pt 8pt; margin: 0 0 18pt; font-family: -apple-system, Helvetica, Arial, sans-serif; font-size: 10pt; }
+.placeholder { background: #fff3c4; }
+table { width: 100%; border-collapse: collapse; margin: 6pt 0 12pt; font-size: 10pt; }
+th, td { border: 1px solid #ccc; padding: 4pt 6pt; text-align: left; vertical-align: top; }
+th { background: #f2f2f2; }
+</style>
+</head>
+<body>
+<p class="disclaimer"><strong>No es asesoramiento legal.</strong> Esta es una plantilla completada con los datos de su inspección. Revise las leyes de su estado o localidad y edite todo lo que esté entre corchetes antes de enviarla.</p>
+<p>2027-01-03</p>
+<p>Pat Owner<br><span class="placeholder">[Dirección postal del arrendador]</span></p>
+<p><strong>Asunto: Devolución del depósito de garantía de 12 Elm St, Unidad 4B</strong></p>
+<p>Estimado/a Pat Owner:</p>
+<p>Alquilé 12 Elm St, Unidad 4B, me mudé el 2026-01-02 y desocupé la vivienda el 2027-01-01. Le escribo para solicitar que me devuelva la totalidad de mi depósito de garantía de <span class="placeholder">[Monto del depósito]</span>, o que me envíe una lista detallada de cualquier deducción.</p>
+<p>In California, landlords generally have 21 days after move-out to return the deposit. Itemized statement and any refund are both due within 21 days. Según esa norma, el depósito vence alrededor del 2027-01-22. Fuente (resumen en inglés): https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CIV&amp;sectionNum=1950.5.</p>
+<p>Documenté el estado de la vivienda a la entrada y a la salida. 2 elementos quedaron registrados en el mismo estado o en mejor estado a la salida.</p>
+<p>La comparación indica que 2 elementos estaban en peor estado a la salida que a la entrada. Los incluyo aquí para que podamos hablarlo abiertamente, y le pido que cualquier deducción por ellos se detalle con recibos o presupuestos y refleje solo daños que excedan el desgaste normal:</p>
+<table><thead><tr><th>Habitación</th><th>Elemento</th><th>Entrada</th><th>Salida</th><th>Nota</th></tr></thead><tbody>
+<tr><td>Kitchen</td><td>Oven</td><td>Bueno</td><td>Dañado</td><td>Scorch mark on door</td></tr>
+<tr><td>Bath</td><td>Mirror</td><td>Bueno</td><td>Regular</td><td></td></tr>
+</tbody></table>
+<p>El informe de comparación de entrada y salida adjunto contiene fotos fechadas de la vivienda con fecha y hora del servidor. Se puede verificar con el código abcdef012345 en unscratched.app/v/abcdef012345.</p>
+<p>Le pido que envíe el depósito a <span class="placeholder">[Dirección para recibir el depósito]</span>. Gracias por su ayuda.</p>
+<p>Atentamente,<br>Sam Renter</p>
+</body>
+</html>
+"
+`;
+
 exports[`snapshot of the full letter 1`] = `
 "<!DOCTYPE html>
 <html lang="en">

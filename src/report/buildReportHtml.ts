@@ -1,12 +1,12 @@
-import type { Condition, SentChannel } from '@/db/types';
+import type { Condition } from '@/db/types';
+import { translator, type Lang, type T } from '@/i18n';
 
 import { escapeHtml } from './escapeHtml';
 import { signatureSvg } from './signature';
 import type { ReportData } from './types';
 
-export const CONDITION_LABELS: Record<Condition, string> = { good: 'Good', fair: 'Fair', damaged: 'Damaged' };
-
-export const SENT_CHANNEL_LABELS: Record<SentChannel, string> = { email: 'email', portal: 'landlord portal', share: 'share sheet' };
+/** "Good", "Fair", "Damaged", or "Not recorded" in the report's language. */
+export const conditionLabel = (t: T, condition: Condition | null) => t(condition ? `condition.${condition}` : 'condition.notRecorded');
 
 const BLANK = '<span class="blank"></span>';
 
@@ -38,44 +38,49 @@ footer { margin-top: 24pt; font-size: 8pt; color: #666; }
 `;
 
 /** Server time from the receipt, or "Receipt pending" until the hash has one. */
-export const receiptLine = (receipts: Record<string, number>, sha256: string, fmt: (ms: number) => string) =>
-  sha256 in receipts ? `Server time: ${fmt(receipts[sha256])}` : 'Receipt pending';
+export const receiptLine = (receipts: Record<string, number>, sha256: string, fmt: (ms: number) => string, t: T = translator('en')) =>
+  sha256 in receipts ? t('pdf.serverTime', { time: fmt(receipts[sha256]) }) : t('pdf.receiptPending');
 
 /** Cover row value: the code and its verify URL, or "Verification pending". Codes are hex, so no escaping needed. */
-export const verificationText = (code: string | null) =>
-  code ? `Verification code: ${code}<br>unscratched.app/v/${code}` : 'Verification pending';
+export const verificationText = (code: string | null, t: T = translator('en')) =>
+  code ? `${t('pdf.verificationCode', { code })}<br>unscratched.app/v/${code}` : t('pdf.verificationPending');
 
-export const defaultFormatDate = (ms: number) =>
-  new Date(ms).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+/** Locale for dates in a PDF: English keeps the US format the reports always had. */
+export const pdfLocale = (lang: Lang) => (lang === 'en' ? 'en-US' : lang);
+
+export const defaultFormatDate = (ms: number, lang: Lang = 'en') =>
+  new Date(ms).toLocaleString(pdfLocale(lang), { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 /** Pure: report data in, a complete print-ready HTML document out. Every user string goes through escapeHtml. */
-export function buildReportHtml(data: ReportData, opts?: { formatDate?: (ms: number) => string }): string {
-  const fmt = opts?.formatDate ?? defaultFormatDate;
+export function buildReportHtml(data: ReportData, opts?: { formatDate?: (ms: number) => string; lang?: Lang }): string {
+  const lang = opts?.lang ?? 'en';
+  const t = translator(lang);
+  const fmt = opts?.formatDate ?? ((ms: number) => defaultFormatDate(ms, lang));
   const { inspection, rooms, thumbnails, acknowledgement, generatedAt, receipts, verificationCode } = data;
   const hasPhotos = rooms.some((r) => r.items.some((i) => i.photos.length));
-  const title = inspection.kind === 'move_in' ? 'Move-in inspection report' : 'Move-out inspection report';
+  const title = t(`pdf.title.${inspection.kind}`);
   const row = (label: string, value: string) => `<dt>${label}</dt><dd>${value}</dd>`;
 
   const cover = `<section class="cover">
 <h1>${title}</h1>
 <dl>
-${row('Address', escapeHtml(inspection.address))}
-${inspection.unit ? row('Unit', escapeHtml(inspection.unit)) : ''}
-${row('Started', fmt(inspection.started_at))}
-${row('Finished', inspection.finished_at != null ? fmt(inspection.finished_at) : 'Not finished')}
-${inspection.tenant_name ? row('Tenant', escapeHtml(inspection.tenant_name)) : ''}
-${inspection.landlord_name ? row('Landlord or manager', escapeHtml(inspection.landlord_name)) : ''}
-${inspection.sent_at != null && inspection.sent_channel ? row('Sent to landlord', `${fmt(inspection.sent_at)} by ${escapeHtml(SENT_CHANNEL_LABELS[inspection.sent_channel])}`) : ''}
-${row('Generated', fmt(generatedAt))}
-${hasPhotos ? row('Verification', verificationText(verificationCode)) : ''}
+${row(t('pdf.address'), escapeHtml(inspection.address))}
+${inspection.unit ? row(t('pdf.unit'), escapeHtml(inspection.unit)) : ''}
+${row(t('pdf.started'), fmt(inspection.started_at))}
+${row(t('pdf.finished'), inspection.finished_at != null ? fmt(inspection.finished_at) : t('pdf.notFinished'))}
+${inspection.tenant_name ? row(t('pdf.tenant'), escapeHtml(inspection.tenant_name)) : ''}
+${inspection.landlord_name ? row(t('common.landlordOrManager'), escapeHtml(inspection.landlord_name)) : ''}
+${inspection.sent_at != null && inspection.sent_channel ? row(t('pdf.sent'), t('pdf.sentBy', { date: fmt(inspection.sent_at), channel: escapeHtml(t(`channel.${inspection.sent_channel}`)) })) : ''}
+${row(t('pdf.generated'), fmt(generatedAt))}
+${hasPhotos ? row(t('pdf.verification'), verificationText(verificationCode, t)) : ''}
 </dl>
-<p>Photos were taken in the Unscratched app. Each photo's SHA-256 fingerprint is listed so the files can be checked later.</p>
+<p>${t('pdf.photosIntro')}</p>
 </section>`;
 
   const roomSections = rooms.map(({ room, items }) => {
     const tableRows = items
       .map(({ item }) => {
-        const condition = item.condition ? CONDITION_LABELS[item.condition] : 'Not recorded';
+        const condition = conditionLabel(t, item.condition);
         const note = item.note ? escapeHtml(item.note).replace(/\r?\n/g, '<br>') : '';
         return `<tr><td>${escapeHtml(item.name)}</td><td>${condition}</td><td>${note}</td></tr>`;
       })
@@ -83,16 +88,16 @@ ${hasPhotos ? row('Verification', verificationText(verificationCode)) : ''}
     const cards = items.flatMap(({ item, photos }) =>
       photos.map((photo, i) => {
         const src = thumbnails[photo.id];
-        const caption = `${escapeHtml(item.name)} - photo ${i + 1}`;
+        const caption = t('pdf.photoCaption', { name: escapeHtml(item.name), n: i + 1 });
         const image = src
           ? `<img src="${escapeHtml(src)}" alt="${caption}">`
-          : '<div class="missing">Photo unavailable</div>';
-        return `<div class="card">${image}<div>${caption}</div><div>${fmt(photo.captured_at)}</div><div>${receiptLine(receipts, photo.sha256, fmt)}</div><div class="hash">SHA-256: ${escapeHtml(photo.sha256.slice(0, 12))}</div></div>`;
+          : `<div class="missing">${t('pdf.photoUnavailable')}</div>`;
+        return `<div class="card">${image}<div>${caption}</div><div>${fmt(photo.captured_at)}</div><div>${receiptLine(receipts, photo.sha256, fmt, t)}</div><div class="hash">SHA-256: ${escapeHtml(photo.sha256.slice(0, 12))}</div></div>`;
       }),
     );
     return `<section class="room">
 <h2>${escapeHtml(room.name)}</h2>
-<table><thead><tr><th>Item</th><th>Condition</th><th>Note</th></tr></thead><tbody>
+<table><thead><tr><th>${t('common.item')}</th><th>${t('common.condition')}</th><th>${t('common.note')}</th></tr></thead><tbody>
 ${tableRows}
 </tbody></table>
 ${cards.length ? `<div class="grid">\n${cards.join('\n')}\n</div>` : ''}
@@ -103,13 +108,13 @@ ${cards.length ? `<div class="grid">\n${cards.join('\n')}\n</div>` : ''}
   const signature = signatureSvg(acknowledgement?.tenantSignature) ?? '';
   const landlord = acknowledgement?.landlordName ? escapeHtml(acknowledgement.landlordName) : BLANK;
   const ack = `<section class="ack">
-<p>I confirm this report reflects the unit's condition on ${fmt(inspection.finished_at ?? generatedAt)}.</p>
-<p>Tenant: ${tenant}${signature}</p>
-<p>Landlord or manager: ${landlord}</p>
+<p>${t('pdf.confirm', { date: fmt(inspection.finished_at ?? generatedAt) })}</p>
+<p>${t('pdf.tenant')}: ${tenant}${signature}</p>
+<p>${t('common.landlordOrManager')}: ${landlord}</p>
 </section>`;
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${lang}">
 <head>
 <meta charset="utf-8">
 <title>${title}</title>
@@ -119,7 +124,7 @@ ${cards.length ? `<div class="grid">\n${cards.join('\n')}\n</div>` : ''}
 ${cover}
 ${roomSections.join('\n')}
 ${ack}
-<footer><p>Not legal advice.</p><p>Made with Unscratched (free)</p></footer>
+<footer><p>${t('common.notLegalAdvice')}.</p><p>${t('pdf.madeWith')}</p></footer>
 </body>
 </html>
 `;
