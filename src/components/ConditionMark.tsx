@@ -3,8 +3,6 @@ import { StyleSheet, View } from 'react-native';
 import type { Condition } from '@/db/types';
 import { useTheme } from '@/theme';
 
-export const CONDITION_LABEL: Record<Condition, string> = { good: 'Good', fair: 'Fair', damaged: 'Damaged' };
-
 /** Shape-coded condition mark: dot (good), half ring (fair), diamond (damaged), hollow ring (not checked). */
 export function ConditionMark({ condition, size = 12 }: { condition: Condition | null; size?: number }) {
   const { c } = useTheme();

@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/Button';
-import { CONDITION_LABEL, ConditionMark } from '@/components/ConditionMark';
+import { ConditionMark } from '@/components/ConditionMark';
 import { FinishedBanner } from '@/components/FinishedBanner';
 import { Group, Row, RowMeta, RowTitle } from '@/components/Group';
 import { InlineInput } from '@/components/InlineInput';
@@ -12,11 +12,13 @@ import { Loading, Problem, errorMessage } from '@/components/Status';
 import { getDb } from '@/db/client';
 import { addItem, countPhotosByItem, deleteItem, getInspection, getRoom, listItems, renameItem } from '@/db/repo';
 import type { Item, Room } from '@/db/types';
+import { useT } from '@/i18n/context';
 import { nextUnchecked } from '@/lib/next';
 import { useTheme } from '@/theme';
 
 export default function RoomItems() {
   const { c } = useTheme();
+  const { t } = useT();
   const params = useLocalSearchParams<{ id: string; roomId: string }>();
   const inspectionId = Number(params.id);
   const roomId = Number(params.roomId);
@@ -61,7 +63,7 @@ export default function RoomItems() {
     try {
       await action(await getDb());
     } catch (e) {
-      Alert.alert('Something went wrong', errorMessage(e));
+      Alert.alert(t('common.somethingWrong'), errorMessage(e));
     }
     await load();
   };
@@ -80,9 +82,9 @@ export default function RoomItems() {
   };
 
   const confirmDelete = (item: Item) =>
-    Alert.alert('Delete item?', `"${item.name}" and its photos will be deleted.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => run((db) => deleteItem(db, item.id)) },
+    Alert.alert(t('items.deleteTitle'), t('items.deleteBody', { name: item.name }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.delete'), style: 'destructive', onPress: () => run((db) => deleteItem(db, item.id)) },
     ]);
 
   const locked = finishedAt != null;
@@ -92,17 +94,17 @@ export default function RoomItems() {
 
   const meta = (item: Item) => {
     const n = photos.get(item.id) ?? 0;
-    const cond = item.condition ? CONDITION_LABEL[item.condition] : 'Not checked';
-    return n === 0 ? cond : `${cond}, ${n} ${n === 1 ? 'photo' : 'photos'}`;
+    const condition = t(item.condition ? `condition.${item.condition}` : 'condition.notChecked');
+    return n === 0 ? condition : t(n === 1 ? 'items.photos.one' : 'items.photos.other', { condition, n });
   };
 
   if (error || room === null)
     return (
       <Screen>
         {error ? (
-          <Problem title="Could not load this room" body={errorMessage(error)} onRetry={load} />
+          <Problem title={t('items.loadError')} body={errorMessage(error)} onRetry={load} />
         ) : (
-          <Problem title="Room not found" body="It may have been deleted." />
+          <Problem title={t('items.notFound')} body={t('common.mayBeDeleted')} />
         )}
       </Screen>
     );
@@ -117,8 +119,8 @@ export default function RoomItems() {
       <Stack.Screen options={{ title: room.name }}>
         {!locked && (
           <Stack.Toolbar placement="right">
-            <Stack.Toolbar.Button accessibilityLabel={editing ? 'Done editing' : 'Edit items'} onPress={() => setEditing((e) => !e)}>
-              {editing ? 'Done' : 'Edit'}
+            <Stack.Toolbar.Button accessibilityLabel={t(editing ? 'common.doneEditing' : 'items.editItems')} onPress={() => setEditing((e) => !e)}>
+              {t(editing ? 'common.done' : 'common.edit')}
             </Stack.Toolbar.Button>
           </Stack.Toolbar>
         )}
@@ -126,12 +128,12 @@ export default function RoomItems() {
       <Screen
         floating={
           !locked && !editing && next ? (
-            <Button label={`Continue with ${next.name}`} trailing={`${left} left`} onPress={() => router.push(`/item/${next.id}`)} />
+            <Button label={t('common.continueWith', { name: next.name })} trailing={t('common.left', { n: left })} onPress={() => router.push(`/item/${next.id}`)} />
           ) : null
         }
       >
         <Text style={[styles.subtitle, { color: c.ink60 }]}>
-          {checked} of {items.length} items checked
+          {t('common.ofItemsChecked', { done: checked, total: items.length })}
         </Text>
         {locked && <FinishedBanner finishedAt={finishedAt} />}
         <Group>
@@ -143,19 +145,19 @@ export default function RoomItems() {
                 onChangeText={(name) => setRenaming({ id: item.id, name })}
                 onSubmit={saveRename}
                 onCancel={() => setRenaming(null)}
-                a11y="Item name"
+                a11y={t('items.itemName')}
               />
             ) : (
               <Row
                 key={item.id}
                 first={idx === 0}
                 onPress={editing ? () => setRenaming({ id: item.id, name: item.name }) : () => router.push(`/item/${item.id}`)}
-                a11y={editing ? `Rename ${item.name}` : `Open ${item.name}, ${meta(item)}`}
+                a11y={editing ? t('rooms.rename', { name: item.name }) : t('items.open', { name: item.name, meta: meta(item) })}
                 controlsBefore={
                   editing ? (
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={`Delete ${item.name}`}
+                      accessibilityLabel={t('rooms.deleteNamed', { name: item.name })}
                       onPress={() => confirmDelete(item)}
                       hitSlop={10}
                       style={[styles.minus, { backgroundColor: c.damaged }]}
@@ -174,10 +176,10 @@ export default function RoomItems() {
           )}
           {!locked &&
             (adding != null ? (
-              <InlineInput value={adding} onChangeText={setAdding} onSubmit={add} onCancel={() => setAdding(null)} placeholder="Item name" a11y="New item name" submitLabel="Add" />
+              <InlineInput value={adding} onChangeText={setAdding} onSubmit={add} onCancel={() => setAdding(null)} placeholder={t('items.itemName')} a11y={t('items.newItemName')} submitLabel={t('common.add')} />
             ) : (
-              <Row first={items.length === 0} onPress={() => setAdding('')} a11y="Add item" trailing={<View />} leading={<View style={[styles.plus, { borderColor: c.ink30 }]}><Text maxFontSizeMultiplier={1} style={[styles.plusText, { color: c.ink60 }]}>+</Text></View>}>
-                <Text style={[styles.addText, { color: c.ink60 }]}>Add item</Text>
+              <Row first={items.length === 0} onPress={() => setAdding('')} a11y={t('items.addItem')} trailing={<View />} leading={<View style={[styles.plus, { borderColor: c.ink30 }]}><Text maxFontSizeMultiplier={1} style={[styles.plusText, { color: c.ink60 }]}>+</Text></View>}>
+                <Text style={[styles.addText, { color: c.ink60 }]}>{t('items.addItem')}</Text>
               </Row>
             ))}
         </Group>

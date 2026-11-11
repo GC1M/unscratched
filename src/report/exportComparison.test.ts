@@ -57,7 +57,7 @@ test('loads both inspections without an acknowledgement, prints, renames, and sh
   expect(loadReportData).toHaveBeenCalledWith(db, 7, null);
   expect(loadReportData).toHaveBeenCalledWith(db, 3, null);
   expect(buildComparison).toHaveBeenCalledWith(moveIn, moveOut);
-  expect(buildComparisonHtml).toHaveBeenCalledWith(comparison);
+  expect(buildComparisonHtml).toHaveBeenCalledWith(comparison, { lang: 'en' });
   expect(Print.printToFileAsync).toHaveBeenCalledWith({ html: '<html>cmp</html>' });
   expect(mockMoves).toEqual([['file:///cache/Print/abc.pdf', pdf, { overwrite: true }]]);
   expect(Sharing.shareAsync).toHaveBeenCalledWith(pdf, {
@@ -97,7 +97,7 @@ test('dispute letter: builds the comparison, prints the letter, and shares it un
   await expect(exportDisputeLetter(db, 7)).resolves.toBe(pdf);
   expect(syncReceipts).toHaveBeenCalledWith(db);
   expect(buildComparison).toHaveBeenCalledWith(moveIn, moveOut);
-  expect(buildDisputeLetterHtml).toHaveBeenCalledWith(comparison);
+  expect(buildDisputeLetterHtml).toHaveBeenCalledWith(comparison, { lang: 'en' });
   expect(buildComparisonHtml).not.toHaveBeenCalled();
   expect(Print.printToFileAsync).toHaveBeenCalledWith({ html: '<html>letter</html>' });
   expect(mockMoves).toEqual([['file:///cache/Print/abc.pdf', pdf, { overwrite: true }]]);

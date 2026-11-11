@@ -26,7 +26,8 @@ import {
 } from '@/db/repo';
 import type { Inspection, Room } from '@/db/types';
 import { depositDueDate, depositSummary, lookupDepositDeadline } from '@/legal/depositDeadlines';
-import { kindLabel, shortDate } from '@/lib/format';
+import { useT } from '@/i18n/context';
+import { shortDate } from '@/lib/format';
 import { nextRoom } from '@/lib/next';
 import { validatePortalUrl } from '@/lib/portalUrl';
 import { cancelReminders } from '@/lib/scheduleReminders';
@@ -34,13 +35,12 @@ import { progress, type Progress } from '@/lib/progress';
 import { acknowledgeLink, fetchAcknowledgements, receiptedManifest, type Acknowledgement } from '@/receipts/acknowledgements';
 import { verificationCode } from '@/receipts/manifest';
 import { syncReceipts } from '@/receipts/queue';
-import { SENT_CHANNEL_LABELS } from '@/report/buildReportHtml';
 import { exportComparison, exportDisputeLetter } from '@/report/exportComparison';
 import { useTheme } from '@/theme';
 
 const CONTACT_FIELDS = [
-  ['landlord_email', 'Landlord email', 'name@example.com'],
-  ['portal_url', 'Landlord portal', 'https://'],
+  ['landlord_email', 'rooms.landlordEmail', 'name@example.com'],
+  ['portal_url', 'rooms.landlordPortal', 'https://'],
 ] as const;
 type ContactField = (typeof CONTACT_FIELDS)[number][0];
 
@@ -48,6 +48,7 @@ type RoomRow = Room & { done: number; total: number; fair: number; damaged: numb
 
 export default function RoomList() {
   const { c } = useTheme();
+  const { t, lang, locale } = useT();
   const inspectionId = Number(useLocalSearchParams<{ id: string }>().id);
   // undefined while loading, null when it no longer exists.
   const [inspection, setInspection] = useState<Inspection | null | undefined>(undefined);
@@ -116,7 +117,7 @@ export default function RoomList() {
     try {
       await action(await getDb());
     } catch (e) {
-      Alert.alert('Something went wrong', errorMessage(e));
+      Alert.alert(t('common.somethingWrong'), errorMessage(e));
     }
     await load();
   };
@@ -139,7 +140,7 @@ export default function RoomList() {
     if (!contact || !inspection) return;
     const value = contact.value.trim() || null;
     if (contact.field === 'portal_url' && value && !validatePortalUrl(value)) {
-      return Alert.alert('Check the portal link', 'Enter the full web address, starting with https://');
+      return Alert.alert(t('rooms.checkPortal'), t('rooms.checkPortalBody'));
     }
     setContact(null);
     const { landlord_email, portal_url } = inspection;
@@ -147,20 +148,20 @@ export default function RoomList() {
   };
 
   const confirmDelete = (room: Room) =>
-    Alert.alert('Delete room?', `"${room.name}" and all its items and photos will be deleted.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => run((db) => deleteRoom(db, room.id)) },
+    Alert.alert(t('rooms.deleteRoom'), t('rooms.deleteRoomBody', { name: room.name }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.delete'), style: 'destructive', onPress: () => run((db) => deleteRoom(db, room.id)) },
     ]);
 
   // ponytail: system alert instead of a custom form sheet; swap for presentation: 'formSheet' if the sheet matters.
   const confirmFinish = () =>
     Alert.alert(
-      'Finish this inspection?',
-      'Conditions, notes, rooms and photos lock so the report can be trusted. You can still export it any time.',
+      t('rooms.finishTitle'),
+      t('rooms.finishBody'),
       [
-        { text: 'Not yet', style: 'cancel' },
+        { text: t('common.notYet'), style: 'cancel' },
         {
-          text: 'Finish and lock',
+          text: t('rooms.finishAndLock'),
           onPress: () =>
             run(async (db) => {
               await finishInspection(db, inspectionId);
@@ -178,20 +179,18 @@ export default function RoomList() {
       router.back();
     } catch (e) {
       setDeleting(false);
-      Alert.alert('Could not delete inspection', errorMessage(e));
+      Alert.alert(t('rooms.deleteError'), errorMessage(e));
     }
   };
 
   // Finished inspections can be deleted too: the lock stops swapping evidence, not discarding all of it.
   const confirmDeleteInspection = () =>
     Alert.alert(
-      'Delete this inspection?',
-      `All rooms, notes and photos will be permanently removed from this phone. This cannot be undone.${
-        inspection?.kind === 'move_in' ? ' A move-out started from it is kept, but can no longer be compared.' : ''
-      }`,
+      t('rooms.deleteInspectionTitle'),
+      `${t('rooms.deleteInspectionBody')}${inspection?.kind === 'move_in' ? t('rooms.deleteInspectionMoveIn') : ''}`,
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: remove },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.delete'), style: 'destructive', onPress: remove },
       ],
     );
 
@@ -199,9 +198,9 @@ export default function RoomList() {
     if (comparing) return;
     setComparing(true);
     try {
-      await exportComparison(await getDb(), inspectionId);
+      await exportComparison(await getDb(), inspectionId, lang);
     } catch (e) {
-      Alert.alert('Comparison export failed', errorMessage(e));
+      Alert.alert(t('rooms.comparisonFailed'), errorMessage(e));
     } finally {
       setComparing(false);
     }
@@ -211,9 +210,9 @@ export default function RoomList() {
     if (lettering) return;
     setLettering(true);
     try {
-      await exportDisputeLetter(await getDb(), inspectionId);
+      await exportDisputeLetter(await getDb(), inspectionId, lang);
     } catch (e) {
-      Alert.alert('Dispute letter export failed', errorMessage(e));
+      Alert.alert(t('rooms.letterFailed'), errorMessage(e));
     } finally {
       setLettering(false);
     }
@@ -222,8 +221,8 @@ export default function RoomList() {
   const askLandlord = () => {
     if (!manifest) return;
     void Share.share({
-      message: `Please acknowledge that you received my inspection report (verification code ${verificationCode(manifest)}): ${acknowledgeLink(manifest)}`,
-    }).catch((e: unknown) => Alert.alert('Could not share the link', errorMessage(e)));
+      message: t('rooms.ackMessage', { code: verificationCode(manifest), link: acknowledgeLink(manifest) }),
+    }).catch((e: unknown) => Alert.alert(t('rooms.shareError'), errorMessage(e)));
   };
 
   const startMoveOut = async () => {
@@ -233,7 +232,7 @@ export default function RoomList() {
       const id = await copyFromMoveIn(await getDb(), inspectionId);
       router.push(`/inspection/${id}`);
     } catch (e) {
-      Alert.alert('Could not start move-out', errorMessage(e));
+      Alert.alert(t('rooms.moveOutError'), errorMessage(e));
     } finally {
       setStarting(false);
     }
@@ -249,9 +248,9 @@ export default function RoomList() {
     return (
       <Screen>
         {error ? (
-          <Problem title="Could not load this inspection" body={errorMessage(error)} onRetry={load} />
+          <Problem title={t('rooms.loadError')} body={errorMessage(error)} onRetry={load} />
         ) : (
-          <Problem title="Inspection not found" body="It may have been deleted." />
+          <Problem title={t('common.inspectionNotFound')} body={t('common.mayBeDeleted')} />
         )}
       </Screen>
     );
@@ -267,8 +266,8 @@ export default function RoomList() {
       <Stack.Screen options={{ title: inspection.address }}>
         {!locked && (
           <Stack.Toolbar placement="right">
-            <Stack.Toolbar.Button accessibilityLabel={editing ? 'Done editing' : 'Edit rooms'} onPress={() => setEditing((e) => !e)}>
-              {editing ? 'Done' : 'Edit'}
+            <Stack.Toolbar.Button accessibilityLabel={t(editing ? 'common.doneEditing' : 'rooms.editRooms')} onPress={() => setEditing((e) => !e)}>
+              {t(editing ? 'common.done' : 'common.edit')}
             </Stack.Toolbar.Button>
           </Stack.Toolbar>
         )}
@@ -277,23 +276,23 @@ export default function RoomList() {
         floating={
           editing ? null : locked ? (
             <View style={styles.stack}>
-              <Button label="Export report" onPress={() => router.push(`/inspection/${inspectionId}/export`)} />
+              <Button label={t('common.exportReport')} onPress={() => router.push(`/inspection/${inspectionId}/export`)} />
               {comparable && (
-                <Button label={comparing ? 'Building comparison' : 'Export comparison'} a11y="Export comparison" variant="secondary" onPress={shareComparison} busy={comparing} />
+                <Button label={t(comparing ? 'rooms.buildingComparison' : 'rooms.exportComparison')} a11y={t('rooms.exportComparison')} variant="secondary" onPress={shareComparison} busy={comparing} />
               )}
               {comparable && (
-                <Button label={lettering ? 'Building letter' : 'Dispute letter (PDF)'} a11y="Dispute letter (PDF)" variant="secondary" onPress={shareLetter} busy={lettering} />
+                <Button label={t(lettering ? 'rooms.buildingLetter' : 'rooms.disputeLetter')} a11y={t('rooms.disputeLetter')} variant="secondary" onPress={shareLetter} busy={lettering} />
               )}
               {inspection?.kind === 'move_in' && (
-                <Button label="Start move-out" variant="secondary" onPress={startMoveOut} busy={starting} />
+                <Button label={t('rooms.startMoveOut')} variant="secondary" onPress={startMoveOut} busy={starting} />
               )}
             </View>
           ) : allDone ? (
-            <Button label="Finish inspection" onPress={confirmFinish} />
+            <Button label={t('rooms.finish')} onPress={confirmFinish} />
           ) : next ? (
             <Button
-              label={`Continue with ${next.name}`}
-              trailing={`${roomsLeft} ${roomsLeft === 1 ? 'room' : 'rooms'} left`}
+              label={t('common.continueWith', { name: next.name })}
+              trailing={t(roomsLeft === 1 ? 'rooms.roomsLeft.one' : 'rooms.roomsLeft.other', { n: roomsLeft })}
               onPress={() => router.push(`/inspection/${inspectionId}/room/${next.id}`)}
             />
           ) : null
@@ -301,28 +300,28 @@ export default function RoomList() {
       >
         {inspection && (
           <Text style={[styles.subtitle, { color: c.ink60 }]}>
-            {kindLabel(inspection.kind)}, started {shortDate(inspection.started_at)}
+            {t('common.kindStarted', { kind: t(`kind.${inspection.kind}`), date: shortDate(inspection.started_at, locale) })}
           </Text>
         )}
         {locked && inspection?.finished_at != null && <FinishedBanner finishedAt={inspection.finished_at} />}
         {inspection.sent_at != null && inspection.sent_channel && (
           <Text style={[styles.sent, { color: c.ink }]}>
-            Sent to landlord on {shortDate(inspection.sent_at)} by {SENT_CHANNEL_LABELS[inspection.sent_channel]}
+            {t('rooms.sent', { date: shortDate(inspection.sent_at, locale), channel: t(`channel.${inspection.sent_channel}`) })}
           </Text>
         )}
         {locked && manifest && (
           <View style={styles.ack}>
             {acks.map((a) => (
               <Text key={`${a.at}-${a.name}`} style={[styles.ackText, { color: c.ink }]}>
-                Acknowledged by {a.name}, {shortDate(a.at)}
+                {t('rooms.acknowledged', { name: a.name, date: shortDate(a.at, locale) })}
               </Text>
             ))}
-            <Button label="Ask landlord to acknowledge" variant="secondary" onPress={askLandlord} />
+            <Button label={t('rooms.askAck')} variant="secondary" onPress={askLandlord} />
           </View>
         )}
         {summary && (
           <View style={styles.progress}>
-            <ProgressBar done={summary.itemsDone} total={summary.itemsTotal} note={`${summary.roomsDone} of ${summary.roomsTotal} rooms`} />
+            <ProgressBar done={summary.itemsDone} total={summary.itemsTotal} note={t('common.ofRooms', { done: summary.roomsDone, total: summary.roomsTotal })} />
           </View>
         )}
         {deposit && (
@@ -330,11 +329,11 @@ export default function RoomList() {
             <Text style={[styles.depositText, { color: c.ink60 }]}>{depositSummary(deposit)}</Text>
             {deposit.days != null && inspection.move_out_date != null && (
               <Text style={[styles.depositText, { color: c.ink }]}>
-                Due around {new Date(depositDueDate(inspection.move_out_date, deposit.days)).toLocaleDateString()}
+                {t('deposit.dueAround', { date: new Date(depositDueDate(inspection.move_out_date, deposit.days)).toLocaleDateString(locale) })}
               </Text>
             )}
             <Text style={[styles.depositText, { color: c.ink60 }]}>
-              <Text accessibilityRole="link" style={styles.link} onPress={() => Linking.openURL(deposit.source)}>Source</Text>. Not legal advice.
+              <Text accessibilityRole="link" style={styles.link} onPress={() => Linking.openURL(deposit.source)}>{t('deposit.source')}</Text>. {t('common.notLegalAdvice')}.
             </Text>
           </View>
         )}
@@ -347,19 +346,23 @@ export default function RoomList() {
                 onChangeText={(name) => setRenaming({ id: room.id, name })}
                 onSubmit={saveRename}
                 onCancel={() => setRenaming(null)}
-                a11y="Room name"
+                a11y={t('rooms.roomName')}
               />
             ) : (
               <Row
                 key={room.id}
                 first={idx === 0}
                 onPress={editing ? () => setRenaming({ id: room.id, name: room.name }) : () => router.push(`/inspection/${inspectionId}/room/${room.id}`)}
-                a11y={editing ? `Rename ${room.name}` : `Open ${room.name}, ${room.done} of ${room.total} items${room.fair ? `, ${room.fair} fair` : ''}${room.damaged ? `, ${room.damaged} damaged` : ''}`}
+                a11y={
+                  editing
+                    ? t('rooms.rename', { name: room.name })
+                    : `${t('rooms.open', { name: room.name, done: room.done, total: room.total })}${room.fair ? t('rooms.fairCount', { n: room.fair }) : ''}${room.damaged ? t('rooms.damagedCount', { n: room.damaged }) : ''}`
+                }
                 controlsBefore={
                   editing ? (
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={`Delete ${room.name}`}
+                      accessibilityLabel={t('rooms.deleteNamed', { name: room.name })}
                       onPress={() => confirmDelete(room)}
                       hitSlop={10}
                       style={[styles.minus, { backgroundColor: c.damaged }]}
@@ -371,10 +374,10 @@ export default function RoomList() {
                 controlsAfter={
                   editing ? (
                     <View style={styles.reorder}>
-                      <Pressable accessibilityRole="button" accessibilityLabel={`Move ${room.name} up`} hitSlop={8} onPress={() => run((db) => moveRoom(db, room.id, 'up'))} style={styles.arrow}>
+                      <Pressable accessibilityRole="button" accessibilityLabel={t('rooms.moveUp', { name: room.name })} hitSlop={8} onPress={() => run((db) => moveRoom(db, room.id, 'up'))} style={styles.arrow}>
                         <Text maxFontSizeMultiplier={1} style={[styles.arrowText, { color: c.ink60 }]}>↑</Text>
                       </Pressable>
-                      <Pressable accessibilityRole="button" accessibilityLabel={`Move ${room.name} down`} hitSlop={8} onPress={() => run((db) => moveRoom(db, room.id, 'down'))} style={styles.arrow}>
+                      <Pressable accessibilityRole="button" accessibilityLabel={t('rooms.moveDown', { name: room.name })} hitSlop={8} onPress={() => run((db) => moveRoom(db, room.id, 'down'))} style={styles.arrow}>
                         <Text maxFontSizeMultiplier={1} style={[styles.arrowText, { color: c.ink60 }]}>↓</Text>
                       </Pressable>
                     </View>
@@ -398,7 +401,7 @@ export default function RoomList() {
                         </View>
                       )}
                       <Text style={[styles.count, { color: c.ink60 }]}>
-                        {room.done} of {room.total}
+                        {t('common.of', { done: room.done, total: room.total })}
                       </Text>
                       <View style={[styles.chevron, { borderColor: c.ink30 }]} />
                     </View>
@@ -411,14 +414,14 @@ export default function RoomList() {
           )}
           {!locked &&
             (adding != null ? (
-              <InlineInput value={adding} onChangeText={setAdding} onSubmit={add} onCancel={() => setAdding(null)} placeholder="Room name" a11y="New room name" submitLabel="Add" />
+              <InlineInput value={adding} onChangeText={setAdding} onSubmit={add} onCancel={() => setAdding(null)} placeholder={t('rooms.roomName')} a11y={t('rooms.newRoomName')} submitLabel={t('common.add')} />
             ) : (
-              <Row first={rooms.length === 0} onPress={() => setAdding('')} a11y="Add room" trailing={<View />} leading={<View style={[styles.plus, { borderColor: c.ink30 }]}><Text maxFontSizeMultiplier={1} style={[styles.plusText, { color: c.ink60 }]}>+</Text></View>}>
-                <Text style={[styles.addText, { color: c.ink60 }]}>Add room</Text>
+              <Row first={rooms.length === 0} onPress={() => setAdding('')} a11y={t('rooms.addRoom')} trailing={<View />} leading={<View style={[styles.plus, { borderColor: c.ink30 }]}><Text maxFontSizeMultiplier={1} style={[styles.plusText, { color: c.ink60 }]}>+</Text></View>}>
+                <Text style={[styles.addText, { color: c.ink60 }]}>{t('rooms.addRoom')}</Text>
               </Row>
             ))}
         </Group>
-        <SectionLabel>Landlord contact</SectionLabel>
+        <SectionLabel>{t('rooms.contact')}</SectionLabel>
         <Group>
           {CONTACT_FIELDS.map(([field, label, placeholder], idx) =>
             contact?.field === field ? (
@@ -429,19 +432,19 @@ export default function RoomList() {
                 onSubmit={saveContact}
                 onCancel={() => setContact(null)}
                 placeholder={placeholder}
-                a11y={label}
+                a11y={t(label)}
               />
             ) : (
-              <Row key={field} first={idx === 0} onPress={() => setContact({ field, value: inspection[field] ?? '' })} a11y={`Edit ${label}`}>
-                <RowTitle>{label}</RowTitle>
-                <RowMeta>{inspection[field] ?? 'Not set'}</RowMeta>
+              <Row key={field} first={idx === 0} onPress={() => setContact({ field, value: inspection[field] ?? '' })} a11y={t('rooms.editContact', { label: t(label) })}>
+                <RowTitle>{t(label)}</RowTitle>
+                <RowMeta>{inspection[field] ?? t('rooms.notSet')}</RowMeta>
               </Row>
             ),
           )}
         </Group>
         <Button
-          label={deleting ? 'Deleting' : 'Delete inspection'}
-          a11y="Delete inspection"
+          label={t(deleting ? 'rooms.deleting' : 'rooms.deleteInspection')}
+          a11y={t('rooms.deleteInspection')}
           testID="delete-inspection"
           variant="danger"
           onPress={confirmDeleteInspection}

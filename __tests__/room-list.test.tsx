@@ -193,7 +193,7 @@ test('Export comparison shows only for a finished move-out linked to a move-in a
   r.getInspection.mockResolvedValue({ ...base, kind: 'move_out', finished_at: 5, linked_move_in_id: 3 } as never);
   await render(<RoomList />);
   await fireEvent.press(await screen.findByLabelText('Export comparison'));
-  expect(exportComparison).toHaveBeenCalledWith({}, 1);
+  expect(exportComparison).toHaveBeenCalledWith({}, 1, 'en');
 });
 
 test('a failed comparison export shows an alert', async () => {
@@ -217,7 +217,7 @@ test('Dispute letter shows only next to Export comparison and exports it; a fail
   r.getInspection.mockResolvedValue({ ...base, kind: 'move_out', finished_at: 5, linked_move_in_id: 3 } as never);
   await render(<RoomList />);
   await fireEvent.press(await screen.findByLabelText('Dispute letter (PDF)'));
-  expect(exportDisputeLetter).toHaveBeenCalledWith({}, 1);
+  expect(exportDisputeLetter).toHaveBeenCalledWith({}, 1, 'en');
 
   exportDisputeLetter.mockRejectedValueOnce(new Error('boom'));
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});

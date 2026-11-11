@@ -79,6 +79,17 @@ test('matches the snapshot', () => {
   expect(buildReportHtml(fixture(), { formatDate })).toMatchSnapshot();
 });
 
+test('Spanish: same document with translated labels and lang="es"; user text stays as typed', () => {
+  const html = buildReportHtml(fixture(), { formatDate, lang: 'es' });
+  expect(html).toMatchSnapshot();
+  expect(html).toContain('<html lang="es">');
+  expect(html).toContain('<h1>Informe de inspección de entrada</h1>');
+  expect(html).toContain('<td>Dañado</td>');
+  expect(html).toContain('No es asesoramiento legal.');
+  expect(html).toContain('Countertops'); // item names are user data
+  expect(html).not.toMatch(/Move-in inspection report|Not recorded|Receipt pending/);
+});
+
 test('photo cards are inline blocks, since WebKit print ignores break-inside on flex items and splits them', () => {
   const html = buildReportHtml(fixture(), { formatDate });
   expect(html).toMatch(/\.card \{[^}]*display: inline-block;[^}]*break-inside: avoid;/);

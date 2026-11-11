@@ -6,7 +6,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { recordSent } from '@/db/repo';
 import type { SentChannel } from '@/db/types';
-import { kindLabel } from '@/lib/format';
+import { translator, type Lang } from '@/i18n';
 import { syncReceipts } from '@/receipts/queue';
 
 import { buildReportHtml } from './buildReportHtml';
@@ -26,34 +26,34 @@ export function reportFileName(kind: 'move_in' | 'move_out', address: string, at
 }
 
 /** Builds the report PDF and renames it. Returns its uri and the data it was built from. */
-async function buildPdf(db: SQLiteDatabase, inspectionId: number, ack: Acknowledgement | null): Promise<{ uri: string; data: ReportData }> {
+async function buildPdf(db: SQLiteDatabase, inspectionId: number, ack: Acknowledgement | null, lang: Lang): Promise<{ uri: string; data: ReportData }> {
   await syncReceipts(db); // best effort, so the PDF has the latest receipts
   const data = await loadReportData(db, inspectionId, ack);
-  const { uri } = await Print.printToFileAsync({ html: buildReportHtml(data) });
+  const { uri } = await Print.printToFileAsync({ html: buildReportHtml(data, { lang }) });
   const pdf = new File(Paths.cache, reportFileName(data.inspection.kind, data.inspection.address, data.generatedAt));
   await new File(uri).move(pdf, { overwrite: true });
   return { uri: pdf.uri, data };
 }
 
-const sharePdf = (uri: string) =>
-  Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Share inspection report' });
+const sharePdf = (uri: string, lang: Lang) =>
+  Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: translator(lang)('share.report') });
 
-/** Builds the report PDF, renames it, and opens the share sheet. Returns the PDF uri. */
-export async function exportReport(db: SQLiteDatabase, inspectionId: number, ack: Acknowledgement | null): Promise<string> {
+/** Builds the report PDF in lang, renames it, and opens the share sheet. Returns the PDF uri. */
+export async function exportReport(db: SQLiteDatabase, inspectionId: number, ack: Acknowledgement | null, lang: Lang = 'en'): Promise<string> {
   if (!(await Sharing.isAvailableAsync())) throw new Error('Sharing is not available on this device.');
-  const { uri } = await buildPdf(db, inspectionId, ack);
-  await sharePdf(uri);
+  const { uri } = await buildPdf(db, inspectionId, ack, lang);
+  await sharePdf(uri, lang);
   return uri;
 }
 
 /** Subject and plain-text body for the landlord email. The verify link is included only once the report has a code. */
-export function landlordMessage({ inspection, acknowledgement, verificationCode }: ReportData): { subject: string; body: string } {
+export function landlordMessage({ inspection, acknowledgement, verificationCode }: ReportData, lang: Lang = 'en'): { subject: string; body: string } {
+  const t = translator(lang);
   const place = inspection.unit ? `${inspection.address}, ${inspection.unit}` : inspection.address;
-  const kind = kindLabel(inspection.kind);
-  const lines = ['Hello,', '', `Attached is my ${kind.toLowerCase()} inspection report for ${place}.`];
-  if (verificationCode) lines.push('', `The photo timestamps can be checked at https://unscratched.app/v/${verificationCode}`);
-  lines.push('', 'Thank you,', acknowledgement?.tenantName ?? '');
-  return { subject: `${kind} inspection report: ${place}`, body: lines.join('\n').trimEnd() };
+  const lines = [t('email.hello'), '', t('email.attached', { kind: t(`kind.${inspection.kind}`).toLowerCase(), place })];
+  if (verificationCode) lines.push('', t('email.verify', { link: `https://unscratched.app/v/${verificationCode}` }));
+  lines.push('', t('email.thanks'), acknowledgement?.tenantName ?? '');
+  return { subject: `${t(`pdf.title.${inspection.kind}`)}: ${place}`, body: lines.join('\n').trimEnd() };
 }
 
 /**
@@ -63,22 +63,22 @@ export function landlordMessage({ inspection, acknowledgement, verificationCode 
  * 'share' once the share sheet closes, since iOS does not say where the file went.
  * The PDF is built before the record is written, so the record shows up in later exports, not this one.
  */
-export async function sendReport(db: SQLiteDatabase, inspectionId: number, ack: Acknowledgement | null): Promise<SentChannel | null> {
+export async function sendReport(db: SQLiteDatabase, inspectionId: number, ack: Acknowledgement | null, lang: Lang = 'en'): Promise<SentChannel | null> {
   const mail = await MailComposer.isAvailableAsync();
   if (!mail && !(await Sharing.isAvailableAsync())) throw new Error('Sharing is not available on this device.');
-  const { uri, data } = await buildPdf(db, inspectionId, ack);
+  const { uri, data } = await buildPdf(db, inspectionId, ack, lang);
   const { landlord_email, portal_url } = data.inspection;
   if (mail && (landlord_email || !portal_url)) {
     const { status } = await MailComposer.composeAsync({
       recipients: landlord_email ? [landlord_email] : [],
-      ...landlordMessage(data),
+      ...landlordMessage(data, lang),
       attachments: [uri],
     });
     if (status !== MailComposer.MailComposerStatus.SENT) return null;
     await recordSent(db, inspectionId, 'email');
     return 'email';
   }
-  await sharePdf(uri);
+  await sharePdf(uri, lang);
   await recordSent(db, inspectionId, 'share');
   return 'share';
 }

@@ -3,26 +3,15 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
+import { useT } from '@/i18n/context';
 import { useOnboarding } from '@/onboarding';
 import { serif, useTheme } from '@/theme';
 
-const PAGES = [
-  {
-    title: '26% of renters lose a deposit',
-    body: 'Most disputes come down to one question: was that scratch there when you moved in? Without proof, it is your word against the landlord’s.',
-  },
-  {
-    title: 'Walk through, room by room',
-    body: 'Mark each item good, fair, or damaged and take a photo. Unscratched turns it into a dated report you can send on move-in day and compare at move-out.',
-  },
-  {
-    title: 'Your data stays on your phone',
-    body: 'No account. Photos, addresses, and notes stay on this device. Only photo fingerprints are sent, to get timestamp receipts. Back up with iCloud.',
-  },
-];
+const PAGES = [1, 2, 3] as const;
 
 export default function Onboarding() {
   const { c } = useTheme();
+  const { t } = useT();
   const { finish } = useOnboarding();
   const [step, setStep] = useState(0);
   const page = PAGES[step];
@@ -30,20 +19,20 @@ export default function Onboarding() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: c.plaster }]}>
       <View style={styles.top}>
-        <Button label="Skip" variant="tertiary" onPress={finish} testID="onboarding-skip" />
+        <Button label={t('onboarding.skip')} variant="tertiary" onPress={finish} testID="onboarding-skip" />
       </View>
       <ScrollView contentContainerStyle={styles.body}>
         <Text style={[styles.title, { color: c.ink }]} accessibilityRole="header">
-          {page.title}
+          {t(`onboarding.${page}.title`)}
         </Text>
-        <Text style={[styles.text, { color: c.ink60 }]}>{page.body}</Text>
+        <Text style={[styles.text, { color: c.ink60 }]}>{t(`onboarding.${page}.body`)}</Text>
       </ScrollView>
-      <View style={styles.dots} accessible accessibilityLabel={`Page ${step + 1} of ${PAGES.length}`}>
+      <View style={styles.dots} accessible accessibilityLabel={t('onboarding.page', { n: step + 1, total: PAGES.length })}>
         {PAGES.map((p, idx) => (
-          <View key={p.title} style={[styles.dot, { backgroundColor: idx === step ? c.ink : c.ink30 }]} />
+          <View key={p} style={[styles.dot, { backgroundColor: idx === step ? c.ink : c.ink30 }]} />
         ))}
       </View>
-      <Button label={last ? 'Get started' : 'Next'} onPress={last ? finish : () => setStep(step + 1)} />
+      <Button label={t(last ? 'onboarding.start' : 'onboarding.next')} onPress={last ? finish : () => setStep(step + 1)} />
     </SafeAreaView>
   );
 }

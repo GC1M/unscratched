@@ -92,6 +92,15 @@ test('snapshot of the full comparison document', () => {
   expect(buildComparisonHtml(fixture(), { formatDate })).toMatchSnapshot();
 });
 
+test('Spanish: snapshot, translated change column, and the English-only deposit summary is labelled', () => {
+  const html = buildComparisonHtml(fixture(), { formatDate, lang: 'es' });
+  expect(html).toMatchSnapshot();
+  expect(html).toContain('<html lang="es">');
+  expect(html).toContain('<td>Peor</td>');
+  expect(html).toContain('Fuente (resumen en inglés): <a href=');
+  expect(html).not.toMatch(/>Worse<|Not in move-in|Move-in vs move-out/);
+});
+
 test('exactly the worsened items are highlighted and labelled "Worse" in text', () => {
   const html = buildComparisonHtml(fixture(), { formatDate });
   const worseRows = html.match(/<tr class="worse">.*<\/tr>/g) ?? [];

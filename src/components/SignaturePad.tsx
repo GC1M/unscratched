@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { PanResponder, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
 
 import { Button } from '@/components/Button';
+import { useT } from '@/i18n/context';
 import { SIGNATURE_HEIGHT, SIGNATURE_WIDTH, strokesToPath, type Stroke } from '@/report/signature';
 import { radius, useTheme } from '@/theme';
 
@@ -17,6 +18,7 @@ const at = (e: GestureResponderEvent) => ({ x: e.nativeEvent.locationX, y: e.nat
  */
 export function SignaturePad({ onDone }: { onDone: (path: string | null) => void }) {
   const { c } = useTheme();
+  const { t } = useT();
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [done, setDone] = useState(false);
   const [width, setWidth] = useState(0);
@@ -71,8 +73,8 @@ export function SignaturePad({ onDone }: { onDone: (path: string | null) => void
       <View
         {...responder.panHandlers}
         accessible
-        accessibilityLabel="Tenant signature pad"
-        accessibilityHint="Optional. Draw a signature with one finger, then tap Done."
+        accessibilityLabel={t('signature.pad')}
+        accessibilityHint={t('signature.hint')}
         onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
         style={[styles.pad, { height, backgroundColor: c.paper, borderColor: c.ink60 }]}
       >
@@ -82,12 +84,12 @@ export function SignaturePad({ onDone }: { onDone: (path: string | null) => void
         </View>
       </View>
       {strokes.length > 0 && (
-        <Text style={[styles.hint, { color: c.ink60 }]}>{done ? 'Signature added to the report.' : 'Tap Done to add it to the report.'}</Text>
+        <Text style={[styles.hint, { color: c.ink60 }]}>{t(done ? 'signature.added' : 'signature.tapDone')}</Text>
       )}
       <View style={styles.actions}>
         <Button
-          label="Clear"
-          a11y="Clear signature"
+          label={t('signature.clear')}
+          a11y={t('signature.clearA11y')}
           variant="secondary"
           style={styles.action}
           disabled={!strokes.length}
@@ -98,8 +100,8 @@ export function SignaturePad({ onDone }: { onDone: (path: string | null) => void
           }}
         />
         <Button
-          label="Done"
-          a11y="Done signing"
+          label={t('common.done')}
+          a11y={t('signature.doneA11y')}
           variant="secondary"
           style={styles.action}
           disabled={!strokes.length || done}
