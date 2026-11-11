@@ -29,3 +29,17 @@ test('drawing then Done hands normalized path data to onDone; Clear hands null',
   await fireEvent.press(screen.getByLabelText('Clear signature'));
   expect(onDone).toHaveBeenLastCalledWith(null);
 });
+
+test('reports drawing while a finger is down and keeps the lift-off point', async () => {
+  const onDone = jest.fn();
+  const onDrawing = jest.fn();
+  await render(<SignaturePad onDone={onDone} onDrawing={onDrawing} />);
+  const pad = screen.getByLabelText('Tenant signature pad');
+  await fireEvent(pad, 'layout', { nativeEvent: { layout: { width: 600, height: 200, x: 0, y: 0 } } });
+  await fireEvent(pad, 'responderGrant', touch(60, 20));
+  expect(onDrawing).toHaveBeenLastCalledWith(true);
+  await fireEvent(pad, 'responderRelease', touch(180, 60));
+  expect(onDrawing).toHaveBeenLastCalledWith(false);
+  await fireEvent.press(screen.getByLabelText('Done signing'));
+  expect(onDone).toHaveBeenLastCalledWith('M30 10L90 30');
+});

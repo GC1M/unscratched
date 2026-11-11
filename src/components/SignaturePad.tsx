@@ -16,13 +16,28 @@ const at = (e: GestureResponderEvent) => ({ x: e.nativeEvent.locationX, y: e.nat
  * Finger-drawn signature. Each segment is a rotated View, so no drawing library is needed. Done hands the strokes to
  * onDone as SVG path data (see strokesToPath); Clear wipes them and hands null.
  */
-export function SignaturePad({ onDone }: { onDone: (path: string | null) => void }) {
+export function SignaturePad({
+  onDone,
+  onDrawing,
+}: {
+  onDone: (path: string | null) => void;
+  /** True while a finger is down on the pad, so the parent can stop its ScrollView from stealing the stroke. */
+  onDrawing?: (drawing: boolean) => void;
+}) {
   const { c } = useTheme();
   const { t } = useT();
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [done, setDone] = useState(false);
-  const [width, setWidth] = useState(0);
-  const height = (width * SIGNATURE_HEIGHT) / SIGNATURE_WIDTH;
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  const extend = (p: { x: number; y: number }) =>
+    setStrokes((s) => {
+      const last = s[s.length - 1];
+      if (!last) return s;
+      const prev = last[last.length - 1];
+      if (Math.hypot(p.x - prev.x, p.y - prev.y) < MIN_STEP) return s;
+      return [...s.slice(0, -1), [...last, p]];
+    });
 
   const [responder] = useState(() =>
     PanResponder.create({
@@ -31,18 +46,17 @@ export function SignaturePad({ onDone }: { onDone: (path: string | null) => void
       // Keep the gesture while drawing instead of letting the screen's ScrollView take it.
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: (e) => {
+        onDrawing?.(true);
         setDone(false);
         setStrokes((s) => [...s, [at(e)]]);
       },
-      onPanResponderMove: (e) => {
-        const p = at(e);
-        setStrokes((s) => {
-          const last = s[s.length - 1];
-          const prev = last[last.length - 1];
-          if (Math.hypot(p.x - prev.x, p.y - prev.y) < MIN_STEP) return s;
-          return [...s.slice(0, -1), [...last, p]];
-        });
+      onPanResponderMove: (e) => extend(at(e)),
+      // The lift-off point can be past the last move event, so add it too.
+      onPanResponderRelease: (e) => {
+        extend(at(e));
+        onDrawing?.(false);
       },
+      onPanResponderTerminate: () => onDrawing?.(false),
     }),
   );
 
@@ -75,8 +89,8 @@ export function SignaturePad({ onDone }: { onDone: (path: string | null) => void
         accessible
         accessibilityLabel={t('signature.pad')}
         accessibilityHint={t('signature.hint')}
-        onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-        style={[styles.pad, { height, backgroundColor: c.paper, borderColor: c.ink60 }]}
+        onLayout={(e) => setSize(e.nativeEvent.layout)}
+        style={[styles.pad, { backgroundColor: c.paper, borderColor: c.ink60 }]}
       >
         {/* pointerEvents none keeps the touch target on the pad, so locationX/Y stay in pad coordinates. */}
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -107,7 +121,7 @@ export function SignaturePad({ onDone }: { onDone: (path: string | null) => void
           disabled={!strokes.length || done}
           onPress={() => {
             setDone(true);
-            onDone(strokesToPath(strokes, width, height));
+            onDone(strokesToPath(strokes, size.width, size.height));
           }}
         />
       </View>
@@ -116,7 +130,8 @@ export function SignaturePad({ onDone }: { onDone: (path: string | null) => void
 }
 
 const styles = StyleSheet.create({
-  pad: { borderRadius: radius.tile, borderBottomWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
+  // aspectRatio, not a height computed from the measured width: a 0 width measured mid-transition would collapse it.
+  pad: { aspectRatio: SIGNATURE_WIDTH / SIGNATURE_HEIGHT, borderRadius: radius.tile, borderBottomWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
   segment: { position: 'absolute', height: THICKNESS, borderRadius: THICKNESS / 2 },
   hint: { fontSize: 15, marginTop: 6, marginHorizontal: 4 },
   actions: { flexDirection: 'row', gap: 10, marginTop: 10 },
