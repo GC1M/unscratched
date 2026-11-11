@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 /// <reference types="node" />
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { request } from 'node:http';
 
 // Integration test against a local Supabase (`npx supabase@latest start`), e.g.
@@ -88,5 +88,20 @@ const lookup = (p_hash: string) => rest('rpc/lookup_receipt', { method: 'POST', 
     for (const bad of [hash.slice(0, 11), 'z'.repeat(12), hash.toUpperCase(), '']) {
       expect((await lookup(bad)).status).toBe(400);
     }
+  });
+});
+
+(URL && KEY ? describe : describe.skip)('suggest_note_usage RLS (local Supabase)', () => {
+  it('denies anon reads and writes of the usage table', async () => {
+    const read = await rest('suggest_note_usage?select=*');
+    if (read.ok) expect(await read.json()).toEqual([]);
+    else expect([401, 403]).toContain(read.status);
+    const write = await rest('suggest_note_usage', { method: 'POST', body: JSON.stringify({ install_id: randomUUID(), count: 0 }) });
+    expect(write.ok).toBe(false);
+  });
+
+  it('denies anon calls to the usage counter', async () => {
+    const res = await rest('rpc/bump_suggest_note_usage', { method: 'POST', body: JSON.stringify({ p_install_id: randomUUID() }) });
+    expect(res.ok).toBe(false);
   });
 });

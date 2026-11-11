@@ -84,7 +84,9 @@ What actually leaves the device (checked against the code on main):
 - `supabase/migrations/20261109000000_receipts.sql`: the `receipts` table has only `id`, `sha256`, and `server_time`. No IP, no device id, no user id, no install id. Rows are not linked to each other or to a person.
 - Supabase's own platform logs (API gateway and edge function logs) record request metadata, including the client IP, for a short retention period set by the Supabase plan. The app does not read or use them.
 - The verify page (`web/verify/`) sends only the typed hash or code to the `lookup_receipt` RPC and has no analytics.
-- Camera photos, addresses, names, notes, and reminders never leave the device. Reminders are local notifications, with no push token.
+- `src/lib/suggestNote.ts` (opt-in, off by default): only when the user turns on "Suggest notes from photos" in Settings and then taps "Suggest note" under a photo, it posts `{ install_id, image }` to the `suggest-note` edge function. `image` is a 768px JPEG copy of that one photo; `install_id` is a random UUID made once and kept in the local `setting` table. With the setting off the item screen renders no button and no request is made.
+- `supabase/functions/suggest-note/` forwards the image to the Anthropic Messages API (Claude Haiku) and returns `{ caption, severity }`. It never logs or stores the image. `supabase/migrations/20261111000100_suggest_note_usage.sql` stores only `install_id`, `day`, and `count` for the 30-a-day limit. Anthropic processes the image to answer the request and, under its API terms, may retain inputs for a limited period for trust and safety; it does not train on API data by default.
+- Addresses, names, notes, and reminders never leave the device. Photos leave it only through the opt-in suggestion above. Reminders are local notifications, with no push token.
 - No analytics, ads, crash SDK, or third-party tracking SDKs are in the app.
 
 ### Apple App Privacy (nutrition label)
@@ -100,6 +102,15 @@ Recommended answer: **Data Not Linked to You**, one data type.
 | Used for tracking? | No |
 
 Resulting label: "Data Not Linked to You: User Content". No "Data Used to Track You" and no "Data Linked to You" sections.
+
+With note suggestions in the build (they are, from #82), add two more rows, both App Functionality, not linked, not used for tracking:
+
+| Data type | Why |
+| --- | --- |
+| User Content > Photos or Videos | The opt-in suggestion sends one downscaled photo. We do not keep it, but Anthropic (our third-party partner here) may retain API inputs for a limited period, which is longer than real-time servicing. Declaring it is the conservative answer. |
+| Identifiers > Device ID | The random install id, stored with daily counts for the rate limit. It is app-generated, not the IDFA or IDFV, and tied to no account. Declared because it is an identifier stored server-side. |
+
+Resulting label: "Data Not Linked to You: User Content, Identifiers".
 
 Why not "Data Not Collected": Apple counts data as collected when it is transmitted off the device and kept longer than needed to answer the request in real time. The fingerprints are stored on our server permanently so receipts stay checkable, so they are collected. They are derived from the user's photos, so "Other User Content" is the closest honest category. Claiming "Data Not Collected" now would be inaccurate and is a review risk.
 
@@ -120,13 +131,20 @@ Why the IP is not declared: Apple's guidance excludes data that is not stored be
 | Required or optional? | Required (fingerprints are sent automatically when an inspection is finished; there is no in-app toggle) |
 | Purpose | App functionality |
 
-Not declared: Photos and videos (photos never leave the device), Location, Personal info, Device or other IDs, App info and performance, Financial info.
+Note suggestions add two more data types:
+
+| Data type collected | Collected or shared? | Processed ephemerally? | Required or optional? | Purpose |
+| --- | --- | --- | --- | --- |
+| Photos and videos > Photos | Collected. Not shared (Supabase and Anthropic process it on our behalf as service providers) | No (conservative: Anthropic may retain API inputs for a limited period) | Optional (off by default; sent only when the user taps Suggest note) | App functionality |
+| Device or other IDs | Collected. Not shared | No (kept with daily counts) | Optional | App functionality (rate limiting) |
+
+Not declared: Location, Personal info, App info and performance, Financial info.
 
 Why not "No data collected": the same reason as Apple. Google counts data transmitted off the device and stored as collected. The fingerprints are user-generated derived data, so they are declared.
 
 ### If receipts are switched off
 
-The app only sends fingerprints when `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` are set at build time (`src/receipts/config.ts`). A build without them sends nothing, and both labels can then say "Data Not Collected" / "No data collected". Ship labels that match the build that goes to the store.
+The app only sends fingerprints when `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` are set at build time (`src/receipts/config.ts`). A build without them sends nothing, and both labels can then say "Data Not Collected" / "No data collected". Ship labels that match the build that goes to the store. Note suggestions use the same build-time config, so such a build sends no photos or install id either.
 
 ## Privacy policy
 
