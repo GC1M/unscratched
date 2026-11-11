@@ -3,7 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { expandTemplate, type Region } from '../templates/rooms';
 
-import type { Condition, Inspection, InspectionKind, Item, Photo, Receipt, Room } from './types';
+import type { Condition, Inspection, InspectionKind, Item, Photo, Receipt, Room, SentChannel } from './types';
 
 // Lock: a finished inspection is read-only.
 
@@ -137,6 +137,22 @@ export function listInspections(db: SQLiteDatabase): Promise<Inspection[]> {
 export async function finishInspection(db: SQLiteDatabase, id: number): Promise<void> {
   await assertEditable(db, 'inspection', id);
   await db.runAsync('UPDATE inspection SET finished_at = ? WHERE id = ?', Date.now(), id);
+}
+
+// Delivery metadata is not evidence, so it stays editable after finish (no assertEditable).
+
+/** Saves the landlord's email and portal URL (null clears). Allowed on a finished inspection. */
+export async function setLandlordContact(
+  db: SQLiteDatabase,
+  id: number,
+  contact: { landlord_email: string | null; portal_url: string | null },
+): Promise<void> {
+  await db.runAsync('UPDATE inspection SET landlord_email = ?, portal_url = ? WHERE id = ?', contact.landlord_email, contact.portal_url, id);
+}
+
+/** Records that the report was sent to the landlord now, by the given channel. Allowed on a finished inspection. */
+export async function recordSent(db: SQLiteDatabase, id: number, channel: SentChannel): Promise<void> {
+  await db.runAsync('UPDATE inspection SET sent_at = ?, sent_channel = ? WHERE id = ?', Date.now(), channel, id);
 }
 
 /**

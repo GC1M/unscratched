@@ -5,7 +5,7 @@ import { Alert, Linking, Pressable, Share, StyleSheet, Text, View } from 'react-
 import { Button } from '@/components/Button';
 import { ConditionMark } from '@/components/ConditionMark';
 import { FinishedBanner } from '@/components/FinishedBanner';
-import { Group, Row, RowTitle } from '@/components/Group';
+import { Group, Row, RowMeta, RowTitle, SectionLabel } from '@/components/Group';
 import { InlineInput } from '@/components/InlineInput';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/Screen';
@@ -22,18 +22,27 @@ import {
   listRooms,
   moveRoom,
   renameRoom,
+  setLandlordContact,
 } from '@/db/repo';
 import type { Inspection, Room } from '@/db/types';
 import { depositDueDate, depositSummary, lookupDepositDeadline } from '@/legal/depositDeadlines';
 import { kindLabel, shortDate } from '@/lib/format';
 import { nextRoom } from '@/lib/next';
+import { validatePortalUrl } from '@/lib/portalUrl';
 import { cancelReminders } from '@/lib/scheduleReminders';
 import { progress, type Progress } from '@/lib/progress';
 import { acknowledgeLink, fetchAcknowledgements, receiptedManifest, type Acknowledgement } from '@/receipts/acknowledgements';
 import { verificationCode } from '@/receipts/manifest';
 import { syncReceipts } from '@/receipts/queue';
+import { SENT_CHANNEL_LABELS } from '@/report/buildReportHtml';
 import { exportComparison, exportDisputeLetter } from '@/report/exportComparison';
 import { useTheme } from '@/theme';
+
+const CONTACT_FIELDS = [
+  ['landlord_email', 'Landlord email', 'name@example.com'],
+  ['portal_url', 'Landlord portal', 'https://'],
+] as const;
+type ContactField = (typeof CONTACT_FIELDS)[number][0];
 
 type RoomRow = Room & { done: number; total: number; fair: number; damaged: number };
 
@@ -49,6 +58,7 @@ export default function RoomList() {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState<{ id: number; name: string } | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
+  const [contact, setContact] = useState<{ field: ContactField; value: string } | null>(null);
   const [comparing, setComparing] = useState(false);
   const [lettering, setLettering] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -122,6 +132,18 @@ export default function RoomList() {
     const name = renaming.name.trim();
     setRenaming(null);
     if (name) await run((db) => renameRoom(db, renaming.id, name));
+  };
+
+  // Delivery details, not evidence: editable after finish too.
+  const saveContact = async () => {
+    if (!contact || !inspection) return;
+    const value = contact.value.trim() || null;
+    if (contact.field === 'portal_url' && value && !validatePortalUrl(value)) {
+      return Alert.alert('Check the portal link', 'Enter the full web address, starting with https://');
+    }
+    setContact(null);
+    const { landlord_email, portal_url } = inspection;
+    await run((db) => setLandlordContact(db, inspectionId, { landlord_email, portal_url, [contact.field]: value }));
   };
 
   const confirmDelete = (room: Room) =>
@@ -283,6 +305,11 @@ export default function RoomList() {
           </Text>
         )}
         {locked && inspection?.finished_at != null && <FinishedBanner finishedAt={inspection.finished_at} />}
+        {inspection.sent_at != null && inspection.sent_channel && (
+          <Text style={[styles.sent, { color: c.ink }]}>
+            Sent to landlord on {shortDate(inspection.sent_at)} by {SENT_CHANNEL_LABELS[inspection.sent_channel]}
+          </Text>
+        )}
         {locked && manifest && (
           <View style={styles.ack}>
             {acks.map((a) => (
@@ -391,6 +418,27 @@ export default function RoomList() {
               </Row>
             ))}
         </Group>
+        <SectionLabel>Landlord contact</SectionLabel>
+        <Group>
+          {CONTACT_FIELDS.map(([field, label, placeholder], idx) =>
+            contact?.field === field ? (
+              <InlineInput
+                key={field}
+                value={contact.value}
+                onChangeText={(value) => setContact({ field, value })}
+                onSubmit={saveContact}
+                onCancel={() => setContact(null)}
+                placeholder={placeholder}
+                a11y={label}
+              />
+            ) : (
+              <Row key={field} first={idx === 0} onPress={() => setContact({ field, value: inspection[field] ?? '' })} a11y={`Edit ${label}`}>
+                <RowTitle>{label}</RowTitle>
+                <RowMeta>{inspection[field] ?? 'Not set'}</RowMeta>
+              </Row>
+            ),
+          )}
+        </Group>
         <Button
           label={deleting ? 'Deleting' : 'Delete inspection'}
           a11y="Delete inspection"
@@ -414,6 +462,7 @@ const styles = StyleSheet.create({
   delete: { marginTop: 32 },
   ack: { gap: 8, marginBottom: 16 },
   ackText: { fontSize: 15, marginHorizontal: 4 },
+  sent: { fontSize: 15, marginHorizontal: 4, marginBottom: 12 },
   progress: { marginBottom: 16, marginHorizontal: 4 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   tally: { flexDirection: 'row', alignItems: 'center', gap: 4 },

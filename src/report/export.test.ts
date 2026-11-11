@@ -1,10 +1,12 @@
+import * as MailComposer from 'expo-mail-composer';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
+import { recordSent } from '@/db/repo';
 import { syncReceipts } from '@/receipts/queue';
 
 import { buildReportHtml } from './buildReportHtml';
-import { exportReport, reportFileName } from './export';
+import { exportReport, reportFileName, sendReport } from './export';
 import { loadReportData } from './loadReport';
 import type { ReportData } from './types';
 
@@ -24,6 +26,12 @@ jest.mock('expo-file-system', () => {
 });
 jest.mock('expo-print', () => ({ printToFileAsync: jest.fn() }));
 jest.mock('expo-sharing', () => ({ isAvailableAsync: jest.fn(), shareAsync: jest.fn() }));
+jest.mock('expo-mail-composer', () => ({
+  isAvailableAsync: jest.fn(),
+  composeAsync: jest.fn(),
+  MailComposerStatus: { UNDETERMINED: 'undetermined', SENT: 'sent', SAVED: 'saved', CANCELLED: 'cancelled' },
+}));
+jest.mock('@/db/repo', () => ({ recordSent: jest.fn(async () => {}) }));
 jest.mock('./loadReport', () => ({ loadReportData: jest.fn() }));
 jest.mock('@/receipts/queue', () => ({ syncReceipts: jest.fn(async () => {}) }));
 jest.mock('./buildReportHtml', () => ({ buildReportHtml: jest.fn() }));
@@ -80,4 +88,71 @@ test('syncs receipts before loading the report data', async () => {
   expect(jest.mocked(syncReceipts).mock.invocationCallOrder[0]).toBeLessThan(
     jest.mocked(loadReportData).mock.invocationCallOrder[0],
   );
+});
+
+describe('sendReport', () => {
+  const pdf = 'file:///cache/Unscratched-move-in-12-main-st-apt-3-2026-01-20.pdf';
+  const withContact = (contact: object, verificationCode: string | null = 'abcdef012345') =>
+    jest.mocked(loadReportData).mockResolvedValue({
+      ...data,
+      acknowledgement: ack,
+      verificationCode,
+      inspection: { ...data.inspection, unit: null, landlord_email: null, portal_url: null, ...contact },
+    } as ReportData);
+
+  beforeEach(() => {
+    jest.mocked(MailComposer.isAvailableAsync).mockResolvedValue(true);
+    jest.mocked(MailComposer.composeAsync).mockResolvedValue({ status: MailComposer.MailComposerStatus.SENT });
+  });
+
+  test('opens the mail composer with the pdf, prefilled landlord and verify link, and records email when sent', async () => {
+    withContact({ landlord_email: 'lee@example.com' });
+    await expect(sendReport(db, 7, ack)).resolves.toBe('email');
+    expect(MailComposer.composeAsync).toHaveBeenCalledWith({
+      recipients: ['lee@example.com'],
+      subject: 'Move-in inspection report: 12 Main St, Apt #3',
+      body: 'Hello,\n\nAttached is my move-in inspection report for 12 Main St, Apt #3.\n\nThe photo timestamps can be checked at https://unscratched.app/v/abcdef012345\n\nThank you,\nAna',
+      attachments: [pdf],
+    });
+    expect(recordSent).toHaveBeenCalledWith(db, 7, 'email');
+    expect(Sharing.shareAsync).not.toHaveBeenCalled();
+  });
+
+  test('omits the verify link without a verification code', async () => {
+    withContact({}, null);
+    await sendReport(db, 7, ack);
+    const { body, recipients } = jest.mocked(MailComposer.composeAsync).mock.calls[0][0];
+    expect(recipients).toEqual([]);
+    expect(body).not.toContain('unscratched.app');
+  });
+
+  test.each([MailComposer.MailComposerStatus.SAVED, MailComposer.MailComposerStatus.CANCELLED])('records nothing when %s', async (status) => {
+    withContact({ landlord_email: 'lee@example.com' });
+    jest.mocked(MailComposer.composeAsync).mockResolvedValue({ status });
+    await expect(sendReport(db, 7, ack)).resolves.toBeNull();
+    expect(recordSent).not.toHaveBeenCalled();
+  });
+
+  test('falls back to the share sheet without a mail account and records share', async () => {
+    withContact({ landlord_email: 'lee@example.com' });
+    jest.mocked(MailComposer.isAvailableAsync).mockResolvedValue(false);
+    await expect(sendReport(db, 7, ack)).resolves.toBe('share');
+    expect(MailComposer.composeAsync).not.toHaveBeenCalled();
+    expect(Sharing.shareAsync).toHaveBeenCalledWith(pdf, expect.objectContaining({ mimeType: 'application/pdf' }));
+    expect(recordSent).toHaveBeenCalledWith(db, 7, 'share');
+  });
+
+  test('uses the share sheet when only a portal URL is saved', async () => {
+    withContact({ portal_url: 'https://portal.example.com' });
+    await expect(sendReport(db, 7, ack)).resolves.toBe('share');
+    expect(MailComposer.composeAsync).not.toHaveBeenCalled();
+  });
+
+  test('throws and builds nothing when neither mail nor sharing is available', async () => {
+    jest.mocked(MailComposer.isAvailableAsync).mockResolvedValue(false);
+    jest.mocked(Sharing.isAvailableAsync).mockResolvedValue(false);
+    await expect(sendReport(db, 7, ack)).rejects.toThrow('Sharing is not available on this device.');
+    expect(Print.printToFileAsync).not.toHaveBeenCalled();
+    expect(recordSent).not.toHaveBeenCalled();
+  });
 });

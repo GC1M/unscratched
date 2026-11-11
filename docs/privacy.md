@@ -18,6 +18,8 @@ Everything you enter (addresses, names, notes, and photos) is stored only on you
 
 The app only shares something when you choose to. If you create a PDF report and share it, you do that yourself through the system share sheet, and you pick where it goes. We do not receive a copy.
 
+"Send to landlord" opens your own mail app with the report attached, or the share sheet if no mail account is set up. The email is sent by your mail app, not through our servers. A landlord email or portal link you save stays on your phone; the app only opens the portal link in your browser when you ask. The date and method you sent the report are recorded on your phone and printed in later reports.
+
 ## Permissions
 
 - Camera: used only to take inspection photos inside the app. Photos are not sent anywhere unless you use optional note suggestions on a photo, as described below. Their fingerprints are sent for timestamp receipts.

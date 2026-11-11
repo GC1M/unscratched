@@ -30,7 +30,8 @@
       "expo-sharing",
       "./plugins/withoutPushEntitlement",
       "expo-notifications",
-      "expo-font"
+      "expo-font",
+      "expo-mail-composer"
     ],
     "icon": "./assets/icon.png",
     "web": {

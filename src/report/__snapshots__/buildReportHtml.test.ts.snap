@@ -41,6 +41,7 @@ footer { margin-top: 24pt; font-size: 8pt; color: #666; }
 <dt>Finished</dt><dd>2026-01-02T11:00:00.000Z</dd>
 <dt>Tenant</dt><dd>Ana Ruiz</dd>
 <dt>Landlord or manager</dt><dd>Bob Lee</dd>
+<dt>Sent to landlord</dt><dd>2026-01-04T09:00:00.000Z by email</dd>
 <dt>Generated</dt><dd>2026-01-03T00:00:00.000Z</dd>
 <dt>Verification</dt><dd>Verification code: abcdef012345<br>unscratched.app/v/abcdef012345</dd>
 </dl>

@@ -20,6 +20,10 @@ const inspection: Inspection = {
   linked_move_in_id: null,
   move_out_date: null,
   state: null,
+  landlord_email: null,
+  portal_url: null,
+  sent_at: Date.UTC(2026, 0, 4, 9),
+  sent_channel: 'email',
 };
 
 const item = (id: number, room_id: number, name: string, condition: Item['condition'], note: string | null = null): Item => ({
@@ -169,6 +173,15 @@ test('the cover shows the verification code and URL, or "Verification pending", 
   expect(pending).not.toContain('Verification code');
   data.rooms = [];
   expect(buildReportHtml(data, { formatDate })).not.toContain('Verification');
+});
+
+test('the cover shows when and how the report was sent to the landlord, or nothing before it is sent', () => {
+  const data = fixture();
+  expect(buildReportHtml(data, { formatDate })).toContain(`<dt>Sent to landlord</dt><dd>${formatDate(Date.UTC(2026, 0, 4, 9))} by email</dd>`);
+  data.inspection = { ...inspection, sent_at: Date.UTC(2026, 0, 5), sent_channel: 'portal' };
+  expect(buildReportHtml(data, { formatDate })).toContain('by landlord portal</dd>');
+  data.inspection = { ...inspection, sent_at: null, sent_channel: null };
+  expect(buildReportHtml(data, { formatDate })).not.toContain('Sent to landlord');
 });
 
 test('the default formatter produces a date string', () => {
