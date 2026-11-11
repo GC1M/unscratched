@@ -1,6 +1,6 @@
 import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { ConditionMark } from '@/components/ConditionMark';
@@ -24,6 +24,7 @@ import {
   renameRoom,
 } from '@/db/repo';
 import type { Inspection, Room } from '@/db/types';
+import { depositDueDate, depositSummary, lookupDepositDeadline } from '@/legal/depositDeadlines';
 import { kindLabel, shortDate } from '@/lib/format';
 import { nextRoom } from '@/lib/next';
 import { cancelReminders } from '@/lib/scheduleReminders';
@@ -207,6 +208,7 @@ export default function RoomList() {
   const comparable = inspection?.kind === 'move_out' && inspection.linked_move_in_id != null;
   const allDone = !!summary && summary.itemsTotal > 0 && summary.roomsDone === summary.roomsTotal;
   const roomsLeft = summary ? summary.roomsTotal - summary.roomsDone : 0;
+  const deposit = inspection?.kind === 'move_out' && inspection.state ? lookupDepositDeadline(inspection.state) : undefined;
 
   if (error || inspection === null)
     return (
@@ -278,6 +280,19 @@ export default function RoomList() {
         {summary && (
           <View style={styles.progress}>
             <ProgressBar done={summary.itemsDone} total={summary.itemsTotal} note={`${summary.roomsDone} of ${summary.roomsTotal} rooms`} />
+          </View>
+        )}
+        {deposit && (
+          <View style={styles.deposit} testID="deposit-deadline">
+            <Text style={[styles.depositText, { color: c.ink60 }]}>{depositSummary(deposit)}</Text>
+            {deposit.days != null && inspection.move_out_date != null && (
+              <Text style={[styles.depositText, { color: c.ink }]}>
+                Due around {new Date(depositDueDate(inspection.move_out_date, deposit.days)).toLocaleDateString()}
+              </Text>
+            )}
+            <Text style={[styles.depositText, { color: c.ink60 }]}>
+              <Text accessibilityRole="link" style={styles.link} onPress={() => Linking.openURL(deposit.source)}>Source</Text>. Not legal advice.
+            </Text>
           </View>
         )}
         <Group>
@@ -377,6 +392,9 @@ export default function RoomList() {
 const styles = StyleSheet.create({
   subtitle: { fontSize: 15, marginTop: -4, marginBottom: 12, marginLeft: 4 },
   stack: { gap: 8 },
+  deposit: { gap: 4, marginBottom: 16, marginHorizontal: 4 },
+  depositText: { fontSize: 15 },
+  link: { textDecorationLine: 'underline' },
   delete: { marginTop: 32 },
   ack: { gap: 8, marginBottom: 16 },
   ackText: { fontSize: 15, marginHorizontal: 4 },

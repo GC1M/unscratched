@@ -14,6 +14,7 @@ const insp = (id: number, kind: Inspection['kind']): Inspection => ({
   landlord_name: null,
   linked_move_in_id: kind === 'move_out' ? 1 : null,
   move_out_date: null,
+  state: null,
 });
 
 let nextId = 1;

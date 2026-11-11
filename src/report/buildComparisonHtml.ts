@@ -1,4 +1,5 @@
 import type { Photo } from '@/db/types';
+import { depositDueDate, depositSummary, lookupDepositDeadline } from '@/legal/depositDeadlines';
 
 import { CONDITION_LABELS, defaultFormatDate, receiptLine, verificationText } from './buildReportHtml';
 import type { Comparison, ComparisonItem } from './comparison';
@@ -47,6 +48,14 @@ export function buildComparisonHtml(c: Comparison, opts?: { formatDate?: (ms: nu
   const fmt = opts?.formatDate ?? defaultFormatDate;
   const row = (label: string, value: string) => `<dt>${label}</dt><dd>${value}</dd>`;
   const finished = (ms: number | null) => (ms != null ? fmt(ms) : 'Not finished');
+  const deposit = c.moveOut.state ? lookupDepositDeadline(c.moveOut.state) : undefined;
+  const dueDate =
+    deposit?.days != null && c.moveOut.move_out_date != null
+      ? ` Due around ${new Date(depositDueDate(c.moveOut.move_out_date, deposit.days)).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}.`
+      : '';
+  const depositNote = deposit
+    ? `<p class="deposit">${escapeHtml(depositSummary(deposit))}${dueDate} Source: <a href="${escapeHtml(deposit.source)}">${escapeHtml(deposit.source)}</a>. Not legal advice.</p>`
+    : '';
   const hasPhotos = (side: 'moveIn' | 'moveOut') => c.rooms.some((r) => r.items.some((i) => i[side]?.photos.length));
 
   const cover = `<section class="cover">
@@ -62,6 +71,7 @@ ${hasPhotos('moveIn') ? row('Move-in verification', verificationText(c.moveInCod
 ${hasPhotos('moveOut') ? row('Move-out verification', verificationText(c.moveOutCode)) : ''}
 </dl>
 <p>Rows marked "Worse" are items whose condition got worse between move-in and move-out. Photos were taken in the Unscratched app; each photo's SHA-256 fingerprint is listed so the files can be checked later.</p>
+${depositNote}
 </section>`;
 
   const card = (name: string, label: string, photo: Photo | undefined) => {

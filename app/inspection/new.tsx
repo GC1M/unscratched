@@ -8,6 +8,7 @@ import { SectionLabel } from '@/components/Group';
 import { Screen } from '@/components/Screen';
 import { getDb } from '@/db/client';
 import { createInspectionFromTemplate, getSetting, setSetting } from '@/db/repo';
+import { lookupDepositDeadline } from '@/legal/depositDeadlines';
 import { parseDate } from '@/lib/reminders';
 import { scheduleReminders } from '@/lib/scheduleReminders';
 import type { Region } from '@/templates/rooms';
@@ -29,6 +30,8 @@ export default function NewInspection() {
   const [tenant, setTenant] = useState('');
   const [landlord, setLandlord] = useState('');
   const [moveOut, setMoveOut] = useState('');
+  const [usState, setUsState] = useState('');
+  const [stateError, setStateError] = useState<string | null>(null);
   const [dateError, setDateError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -54,6 +57,13 @@ export default function NewInspection() {
       setDateError('Use a real date like 2026-08-31');
       return;
     }
+    // The deadline table is US only; a state typed before switching region is ignored.
+    const stateText = region === 'US' ? usState.trim() : '';
+    const stateRow = stateText ? lookupDepositDeadline(stateText) : undefined;
+    if (stateText && !stateRow) {
+      setStateError('Use a two-letter US state code like CA');
+      return;
+    }
     setError(null);
     setSaving(true);
     try {
@@ -66,6 +76,7 @@ export default function NewInspection() {
           tenant_name: orNull(tenant),
           landlord_name: orNull(landlord),
           move_out_date: moveOutDate,
+          state: stateRow?.code ?? null,
         },
         undefined,
         region,
@@ -125,6 +136,21 @@ export default function NewInspection() {
             );
           })}
         </View>
+        {region === 'US' && (
+          <>
+            <SectionLabel>State (two letters)</SectionLabel>
+            <Field
+              value={usState}
+              onChangeText={(t) => { setUsState(t); setStateError(null); }}
+              placeholder="Optional, for the deposit deadline"
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={2}
+              accessibilityLabel="State (two letters)"
+            />
+            {stateError && <Text style={[styles.error, { color: c.damaged }]}>{stateError}</Text>}
+          </>
+        )}
         <Button label="Start inspection" onPress={submit} busy={saving} style={styles.button} />
       </Screen>
     </>
