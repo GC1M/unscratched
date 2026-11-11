@@ -43,6 +43,13 @@ test('Continue opens the next unchecked item', async () => {
   expect(router.push).toHaveBeenCalledWith('/item/2');
 });
 
+test('once every item is checked, Done returns to the room list', async () => {
+  items = items.map((i) => ({ ...i, condition: 'good' }));
+  await render(<RoomItems />);
+  await fireEvent.press(await screen.findByRole('button', { name: 'Done with Kitchen' }));
+  expect(router.dismissTo).toHaveBeenCalledWith('/inspection/1');
+});
+
 const insideAccessible = (el: ReturnType<typeof screen.getByRole>) => {
   for (let p = el.parent; p; p = p.parent) if (p.props.accessible) return true;
   return false;
