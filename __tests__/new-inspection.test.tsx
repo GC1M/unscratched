@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { router } from 'expo-router';
 
 import NewInspection from '../app/inspection/new';
-import { createInspectionFromTemplate } from '@/db/repo';
+import { createInspectionFromTemplate, getSetting, setSetting } from '@/db/repo';
 import { scheduleReminders } from '@/lib/scheduleReminders';
 
 jest.mock('expo-router', () => ({
@@ -10,7 +10,11 @@ jest.mock('expo-router', () => ({
   router: { replace: jest.fn() },
 }));
 jest.mock('@/db/client', () => ({ getDb: jest.fn().mockResolvedValue({ fake: true }) }));
-jest.mock('@/db/repo', () => ({ createInspectionFromTemplate: jest.fn() }));
+jest.mock('@/db/repo', () => ({
+  createInspectionFromTemplate: jest.fn(),
+  getSetting: jest.fn().mockResolvedValue(null),
+  setSetting: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock('@/lib/scheduleReminders', () => ({ scheduleReminders: jest.fn().mockResolvedValue(undefined) }));
 
 beforeEach(() => jest.clearAllMocks());
@@ -38,6 +42,8 @@ test('valid submit creates with trimmed values and navigates to the inspection',
   expect(createInspectionFromTemplate).toHaveBeenCalledWith(
     { fake: true },
     { address: '1 Main St', unit: '2B', tenant_name: null, landlord_name: null, move_out_date: null },
+    undefined,
+    'US',
   );
   expect(screen.queryByText('Address is required')).toBeNull();
   expect(scheduleReminders).not.toHaveBeenCalled();
@@ -83,4 +89,26 @@ test('a scheduling failure still navigates to the saved inspection', async () =>
   await fireEvent.press(screen.getByRole('button', { name: 'Start inspection' }));
 
   await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/inspection/8'));
+});
+
+test('room templates default to the last used region', async () => {
+  jest.mocked(getSetting).mockResolvedValueOnce('UK');
+  await render(<NewInspection />);
+  await waitFor(() => expect(screen.getByLabelText('UK room templates')).toBeSelected());
+  expect(screen.getByLabelText('US room templates')).not.toBeSelected();
+  expect(getSetting).toHaveBeenCalledWith({ fake: true }, 'region');
+});
+
+test('picking a region creates from its templates and remembers it', async () => {
+  jest.mocked(createInspectionFromTemplate).mockResolvedValue(9);
+  await render(<NewInspection />);
+  expect(screen.getByLabelText('US room templates')).toBeSelected();
+  await fireEvent.press(screen.getByLabelText('Canada room templates'));
+  expect(screen.getByLabelText('Canada room templates')).toBeSelected();
+  await fireEvent.changeText(screen.getByLabelText('Address'), '1 Main St');
+  await fireEvent.press(screen.getByRole('button', { name: 'Start inspection' }));
+
+  await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/inspection/9'));
+  expect(jest.mocked(createInspectionFromTemplate).mock.calls[0][3]).toBe('CA');
+  expect(setSetting).toHaveBeenCalledWith({ fake: true }, 'region', 'CA');
 });

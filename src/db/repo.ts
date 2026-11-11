@@ -1,7 +1,7 @@
 import { File, Paths } from 'expo-file-system';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { expandTemplate } from '../templates/rooms';
+import { expandTemplate, type Region } from '../templates/rooms';
 
 import type { Condition, Inspection, InspectionKind, Item, Photo, Receipt, Room } from './types';
 
@@ -66,11 +66,12 @@ export async function createInspectionFromTemplate(
   db: SQLiteDatabase,
   input: NewInspection,
   roomNames?: string[],
+  region: Region = 'US',
 ): Promise<number> {
   let id = 0;
   await db.withTransactionAsync(async () => {
     id = await createInspection(db, input);
-    for (const room of expandTemplate(roomNames)) {
+    for (const room of expandTemplate(roomNames, region)) {
       const r = await db.runAsync('INSERT INTO room (inspection_id, name, sort) VALUES (?, ?, ?)', id, room.name, room.sort);
       for (const item of room.items) {
         await db.runAsync('INSERT INTO item (room_id, name, sort) VALUES (?, ?, ?)', r.lastInsertRowId, item.name, item.sort);

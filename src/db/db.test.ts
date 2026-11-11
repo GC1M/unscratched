@@ -136,6 +136,13 @@ describe('repo', () => {
     expect((await repo.listItems(db, rooms[1].id)).map((it) => it.name)).toEqual(['Walls', 'Floor', 'Ceiling']);
   });
 
+  test('createInspectionFromTemplate uses the given region', async () => {
+    const { db } = await setup();
+    const id = await repo.createInspectionFromTemplate(db, { address: 'x' }, undefined, 'UK');
+    const rooms = await repo.listRooms(db, id);
+    expect(rooms.map((r) => r.name)).toEqual(expandTemplate(undefined, 'UK').map((r) => r.name));
+  });
+
   test('rooms append, rename, reorder, and delete keep sort contiguous', async () => {
     const { db } = await setup();
     const insp = await repo.createInspection(db, { address: 'x' });
