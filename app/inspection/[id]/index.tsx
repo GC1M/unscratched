@@ -32,7 +32,7 @@ import { progress, type Progress } from '@/lib/progress';
 import { acknowledgeLink, fetchAcknowledgements, receiptedManifest, type Acknowledgement } from '@/receipts/acknowledgements';
 import { verificationCode } from '@/receipts/manifest';
 import { syncReceipts } from '@/receipts/queue';
-import { exportComparison } from '@/report/exportComparison';
+import { exportComparison, exportDisputeLetter } from '@/report/exportComparison';
 import { useTheme } from '@/theme';
 
 type RoomRow = Room & { done: number; total: number; fair: number; damaged: number };
@@ -50,6 +50,7 @@ export default function RoomList() {
   const [renaming, setRenaming] = useState<{ id: number; name: string } | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
   const [comparing, setComparing] = useState(false);
+  const [lettering, setLettering] = useState(false);
   const [starting, setStarting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   // Set once the server has a receipt for this finished inspection's manifest; acks come from the server, best effort.
@@ -184,6 +185,18 @@ export default function RoomList() {
     }
   };
 
+  const shareLetter = async () => {
+    if (lettering) return;
+    setLettering(true);
+    try {
+      await exportDisputeLetter(await getDb(), inspectionId);
+    } catch (e) {
+      Alert.alert('Dispute letter export failed', errorMessage(e));
+    } finally {
+      setLettering(false);
+    }
+  };
+
   const askLandlord = () => {
     if (!manifest) return;
     void Share.share({
@@ -245,6 +258,9 @@ export default function RoomList() {
               <Button label="Export report" onPress={() => router.push(`/inspection/${inspectionId}/export`)} />
               {comparable && (
                 <Button label={comparing ? 'Building comparison' : 'Export comparison'} a11y="Export comparison" variant="secondary" onPress={shareComparison} busy={comparing} />
+              )}
+              {comparable && (
+                <Button label={lettering ? 'Building letter' : 'Dispute letter (PDF)'} a11y="Dispute letter (PDF)" variant="secondary" onPress={shareLetter} busy={lettering} />
               )}
               {inspection?.kind === 'move_in' && (
                 <Button label="Start move-out" variant="secondary" onPress={startMoveOut} busy={starting} />

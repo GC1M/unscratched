@@ -10,7 +10,7 @@ import RoomList from '../app/inspection/[id]/index';
 
 jest.mock('@/db/client', () => ({ getDb: jest.fn(async () => ({})) }));
 jest.mock('@/db/repo');
-jest.mock('@/report/exportComparison', () => ({ exportComparison: jest.fn() }));
+jest.mock('@/report/exportComparison', () => ({ exportComparison: jest.fn(), exportDisputeLetter: jest.fn() }));
 jest.mock('@/lib/scheduleReminders', () => ({ cancelReminders: jest.fn(async () => {}) }));
 jest.mock('expo-router', () => jest.requireActual('@/test/expoRouter').mockExpoRouter({ useLocalSearchParams: () => ({ id: '1' }) }));
 
@@ -204,6 +204,25 @@ test('a failed comparison export shows an alert', async () => {
   await render(<RoomList />);
   await fireEvent.press(await screen.findByLabelText('Export comparison'));
   expect(alert).toHaveBeenCalledWith('Comparison export failed', 'boom');
+});
+
+test('Dispute letter shows only next to Export comparison and exports it; a failure shows an alert', async () => {
+  const { exportDisputeLetter } = jest.requireMock('@/report/exportComparison');
+  r.getInspection.mockResolvedValue({ ...base, kind: 'move_out', finished_at: 5, linked_move_in_id: null } as never);
+  const { unmount } = await render(<RoomList />);
+  await screen.findByText('Kitchen');
+  expect(screen.queryByLabelText('Dispute letter (PDF)')).toBeNull();
+  await unmount();
+
+  r.getInspection.mockResolvedValue({ ...base, kind: 'move_out', finished_at: 5, linked_move_in_id: 3 } as never);
+  await render(<RoomList />);
+  await fireEvent.press(await screen.findByLabelText('Dispute letter (PDF)'));
+  expect(exportDisputeLetter).toHaveBeenCalledWith({}, 1);
+
+  exportDisputeLetter.mockRejectedValueOnce(new Error('boom'));
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  await fireEvent.press(screen.getByLabelText('Dispute letter (PDF)'));
+  expect(alert).toHaveBeenCalledWith('Dispute letter export failed', 'boom');
 });
 
 test('Start move-out shows only for a finished move-in and opens the new inspection', async () => {
