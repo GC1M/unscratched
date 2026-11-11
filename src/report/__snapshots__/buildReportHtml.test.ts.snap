@@ -26,6 +26,7 @@ th { background: #f2f2f2; }
 .missing { display: flex; align-items: center; justify-content: center; height: 120pt; background: #f2f2f2; color: #666; }
 .hash { font-family: Menlo, Consolas, monospace; }
 .ack { page-break-inside: avoid; margin-top: 24pt; }
+.sig { display: block; width: 180pt; height: 60pt; }
 .blank { display: inline-block; width: 200pt; border-bottom: 1px solid #111; }
 footer { margin-top: 24pt; font-size: 8pt; color: #666; }
 </style>

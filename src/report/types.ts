@@ -2,7 +2,12 @@ import type { Inspection, Item, Photo, Room } from '@/db/types';
 
 export interface ReportItem { item: Item; photos: Photo[]; }
 export interface ReportRoom { room: Room; items: ReportItem[]; }
-export interface Acknowledgement { tenantName: string; landlordName: string | null; date: number; }
+export interface Acknowledgement {
+  tenantName: string;
+  landlordName: string | null;
+  date: number;
+  tenantSignature?: string | null; // SVG path data from strokesToPath; optional, drawn in addition to the typed name
+}
 export interface ReportData {
   inspection: Inspection;
   rooms: ReportRoom[];

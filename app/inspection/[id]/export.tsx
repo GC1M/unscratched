@@ -6,6 +6,7 @@ import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { SectionLabel } from '@/components/Group';
 import { Screen } from '@/components/Screen';
+import { SignaturePad } from '@/components/SignaturePad';
 import { Loading, Problem, errorMessage } from '@/components/Status';
 import { getDb } from '@/db/client';
 import { getInspection } from '@/db/repo';
@@ -13,7 +14,7 @@ import { exportReport } from '@/report/export';
 import { exportPhotosZip } from '@/report/exportPhotosZip';
 import { serifItalic, useTheme } from '@/theme';
 
-// The typed names are passed to the report only. The inspection is finished (locked), so
+// The typed names and drawn signature are passed to the report only. The inspection is finished (locked), so
 // nothing on this screen writes to it.
 export default function ExportReport() {
   const { c } = useTheme();
@@ -21,6 +22,7 @@ export default function ExportReport() {
   const [date, setDate] = useState<number | null>(null);
   const [tenant, setTenant] = useState('');
   const [landlord, setLandlord] = useState('');
+  const [signature, setSignature] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [zipBusy, setZipBusy] = useState(false);
   // Set when the inspection is missing or not finished (e.g. a crafted deep link): show why, not the form.
@@ -49,6 +51,7 @@ export default function ExportReport() {
         tenantName: tenant.trim(),
         landlordName: landlord.trim() || null,
         date,
+        tenantSignature: signature,
       });
     } catch (e) {
       Alert.alert('Export failed', e instanceof Error ? e.message : String(e));
@@ -89,6 +92,8 @@ export default function ExportReport() {
         </Text>
         <SectionLabel>Tenant typed name</SectionLabel>
         <Field signature value={tenant} onChangeText={setTenant} accessibilityLabel="Tenant typed name" placeholder="Required" />
+        <SectionLabel>Tenant signature (optional)</SectionLabel>
+        <SignaturePad onDone={setSignature} />
         <SectionLabel>Landlord or manager typed name</SectionLabel>
         <Field signature value={landlord} onChangeText={setLandlord} accessibilityLabel="Landlord or manager typed name" placeholder="Optional" />
         <Button label={busy ? 'Building PDF' : 'Export PDF'} a11y="Export PDF" onPress={submit} disabled={disabled} busy={busy} style={styles.button} />

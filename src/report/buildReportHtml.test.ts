@@ -134,6 +134,23 @@ test('blank signature lines when acknowledgement is null; move-out title and unf
   expect(html).toContain(`on ${formatDate(data.generatedAt)}.`);
 });
 
+test('a drawn tenant signature renders as inline SVG next to the typed name', () => {
+  const data = fixture();
+  data.acknowledgement = { ...data.acknowledgement!, tenantSignature: 'M10 20L30 40' };
+  const html = buildReportHtml(data, { formatDate });
+  expect(html).toContain('<p>Tenant: Ana Ruiz<svg class="sig"');
+  expect(html).toContain('<path d="M10 20L30 40"');
+});
+
+test('a malicious signature value is dropped, not rendered raw', () => {
+  const data = fixture();
+  data.acknowledgement = { ...data.acknowledgement!, tenantSignature: 'M0 0L1 1"/><script>alert(1)</script>' };
+  const html = buildReportHtml(data, { formatDate });
+  expect(html).not.toContain('<script>');
+  expect(html).not.toContain('<svg');
+  expect(html).toContain('<p>Tenant: Ana Ruiz</p>');
+});
+
 test('a photo with a receipt shows its server time, the others show "Receipt pending"', () => {
   const html = buildReportHtml(fixture(), { formatDate });
   expect(html.match(/Server time: /g)).toHaveLength(1);
