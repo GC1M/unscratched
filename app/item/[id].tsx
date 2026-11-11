@@ -35,6 +35,7 @@ export default function ItemScreen() {
   const [error, setError] = useState<unknown>(null);
   const [siblings, setSiblings] = useState<Item[]>([]);
   const [roomName, setRoomName] = useState('');
+  const [inspectionId, setInspectionId] = useState<number | null>(null);
   const [note, setNoteText] = useState('');
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
@@ -71,6 +72,7 @@ export default function ItemScreen() {
         setMoveInPhotos(matchPhotos);
         setItem(loaded);
         setRoomName(room?.name ?? '');
+        setInspectionId(room?.inspection_id ?? null);
         setSiblings(list);
         setFinishedAt(finished);
         setNoteText(loaded.note ?? '');
@@ -200,7 +202,7 @@ export default function ItemScreen() {
           locked ? null : next ? (
             <Button label={t('item.next', { name: next.name })} trailing={t('common.left', { n: left })} onPress={() => go(() => router.replace(`/item/${next.id}`))} />
           ) : (
-            <Button label={t('item.doneWith', { name: roomName })} variant="secondary" onPress={() => go(() => router.back())} />
+            <Button label={t('item.doneWith', { name: roomName })} variant="secondary" onPress={() => go(() => (inspectionId == null ? router.back() : router.dismissTo(`/inspection/${inspectionId}`)))} />
           )
         }
       >

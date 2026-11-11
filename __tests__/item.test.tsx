@@ -71,11 +71,11 @@ test('shows position in the room and Next goes to the next unchecked item', asyn
   expect(router.replace).toHaveBeenCalledWith('/item/8');
 });
 
-test('when nothing is left, Done goes back to the room', async () => {
+test('when nothing is left, Done returns to the room list', async () => {
   jest.mocked(listItems).mockResolvedValue([item, { ...floor, condition: 'good' }]);
   await render(<ItemScreen />);
   await fireEvent.press(await screen.findByRole('button', { name: 'Done with Kitchen' }));
-  expect(router.back).toHaveBeenCalled();
+  expect(router.dismissTo).toHaveBeenCalledWith('/inspection/1');
 });
 
 test('note is saved on blur', async () => {

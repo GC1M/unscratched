@@ -127,9 +127,12 @@ export default function RoomItems() {
       </Stack.Screen>
       <Screen
         floating={
-          !locked && !editing && next ? (
+          locked || editing || items.length === 0 ? null : next ? (
             <Button label={t('common.continueWith', { name: next.name })} trailing={t('common.left', { n: left })} onPress={() => router.push(`/item/${next.id}`)} />
-          ) : null
+          ) : (
+            // Every item is checked: head back to the room list, which offers the next room or Finish.
+            <Button label={t('item.doneWith', { name: room.name })} variant="secondary" onPress={() => router.dismissTo(`/inspection/${inspectionId}`)} />
+          )
         }
       >
         <Text style={[styles.subtitle, { color: c.ink60 }]}>

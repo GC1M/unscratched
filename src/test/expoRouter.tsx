@@ -26,7 +26,7 @@ export function mockExpoRouter(extra: Record<string, unknown> = {}) {
   };
   return {
     Stack: { Screen, Toolbar },
-    router: { push: jest.fn(), replace: jest.fn(), back: jest.fn() },
+    router: { push: jest.fn(), replace: jest.fn(), back: jest.fn(), dismissTo: jest.fn() },
     useFocusEffect: (cb: () => void | (() => void)) => useEffect(cb, [cb]),
     ...extra,
   };
