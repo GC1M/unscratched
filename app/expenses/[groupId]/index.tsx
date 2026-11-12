@@ -1,22 +1,25 @@
 import { File, Paths } from 'expo-file-system';
 import { Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import { useCallback, useMemo, useState } from 'react';
-import { Alert, Share, StyleSheet, Text } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, Linking, Share, StyleSheet, Text, type AlertButton } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
 import { Group, Row, RowMeta, RowTitle, SectionLabel } from '@/components/Group';
 import { Screen } from '@/components/Screen';
 import { Loading, Problem, errorMessage } from '@/components/Status';
-import { currentUserId, deleteRecurring, deleteSettlement, loadGroup, recordSettlement } from '@/expenses/api';
+import { currentUserId, deleteRecurring, deleteSettlement, loadGroup, recordSettlement, watchGroup } from '@/expenses/api';
 import { searchExpenses, toCsv } from '@/expenses/report';
-import { balances, formatCents, simplifyDebts } from '@/expenses/split';
+import { balances, formatCents, pairwiseDebts, simplifyDebts } from '@/expenses/split';
 import type { GroupData } from '@/expenses/types';
 import { useT } from '@/i18n/context';
 import { useTheme } from '@/theme';
 
-/** One group: balances, suggested payments, activity with search, recurring expenses, invite, and CSV export. */
+/**
+ * One group: balances, who pays whom (simplified or not), expenses and payments with search, recurring expenses, invite,
+ * and CSV export. Refreshes live when anything changes on another phone.
+ */
 export default function ExpenseGroup() {
   const { c } = useTheme();
   const { t, locale } = useT();
@@ -42,23 +45,38 @@ export default function ExpenseGroup() {
       load();
     }, [load]),
   );
+  useEffect(() => watchGroup(groupId, load), [groupId, load]);
 
   const names = useMemo(() => Object.fromEntries((data?.members ?? []).map((m) => [m.user_id, m.display_name])), [data]);
   const bal = useMemo(
     () =>
       data
         ? balances(
-            data.expenses.map((e) => ({ payerId: e.payer_id, amountCents: e.amount_cents, shares: e.shares })),
+            data.expenses.map((e) => ({ payerId: e.payer_id, payers: e.payers, amountCents: e.amount_cents, shares: e.shares })),
             data.settlements.map((s) => ({ fromId: s.from_id, toId: s.to_id, amountCents: s.amount_cents })),
           )
         : {},
     [data],
+  );
+  const payments = useMemo(
+    () =>
+      !data
+        ? []
+        : data.group.simplify_debts
+          ? simplifyDebts(bal)
+          : pairwiseDebts(
+              data.expenses.map((e) => ({ payerId: e.payer_id, payers: e.payers, amountCents: e.amount_cents, shares: e.shares })),
+              data.settlements.map((s) => ({ fromId: s.from_id, toId: s.to_id, amountCents: s.amount_cents })),
+            ),
+    [data, bal],
   );
 
   const header = (title: string) => (
     <Stack.Screen options={{ title, headerLargeTitleStyle: { fontSize: 34, color: c.ink } }}>
       {data && (
         <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Button icon="gearshape" accessibilityLabel={t('exp.settings')} onPress={() => router.push(`/expenses/${groupId}/settings`)} />
+          <Stack.Toolbar.Button icon="clock" accessibilityLabel={t('exp.history')} onPress={() => router.push(`/expenses/${groupId}/history`)} />
           <Stack.Toolbar.Button icon="chart.bar" accessibilityLabel={t('exp.stats')} onPress={() => router.push(`/expenses/${groupId}/stats`)} />
           <Stack.Toolbar.Button icon="plus" accessibilityLabel={t('exp.addExpense')} onPress={() => router.push(`/expenses/${groupId}/expense`)} />
         </Stack.Toolbar>
@@ -76,16 +94,32 @@ export default function ExpenseGroup() {
 
   const money = (cents: number) => formatCents(cents, data.group.currency, locale);
   const who = (id: string) => (id === me ? t('exp.you') : (names[id] ?? '?'));
-  const payments = simplifyDebts(bal);
 
-  const settle = (fromId: string, toId: string, cents: number) =>
-    Alert.alert(t('exp.settleTitle'), t('exp.settleBody', { from: who(fromId), to: who(toId), amount: money(cents) }), [
+  // Tapping a suggested payment: record it in full, record another amount, remind the debtor, or pay with Venmo.
+  const settle = (fromId: string, toId: string, cents: number) => {
+    const buttons: AlertButton[] = [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('exp.settleYes'),
         onPress: () => recordSettlement(groupId, fromId, toId, cents).then(load, (e: unknown) => Alert.alert(t('exp.failed'), errorMessage(e))),
       },
-    ]);
+      { text: t('exp.otherAmount'), onPress: () => router.push(`/expenses/${groupId}/settle?from=${fromId}&to=${toId}&cents=${cents}`) },
+    ];
+    if (toId === me)
+      buttons.push({
+        text: t('exp.remind'),
+        onPress: () => Share.share({ message: t('exp.remindMessage', { name: names[fromId] ?? '', amount: money(cents), group: data.group.name }) }),
+      });
+    if (fromId === me && data.group.currency === 'USD')
+      buttons.push({
+        text: t('exp.payVenmo'),
+        onPress: () =>
+          Linking.openURL(`venmo://paycharge?txn=pay&amount=${(cents / 100).toFixed(2)}&note=${encodeURIComponent(data.group.name)}`).catch(() =>
+            Alert.alert(t('exp.noVenmo')),
+          ),
+      });
+    Alert.alert(t('exp.settleTitle'), t('exp.settleBody', { from: who(fromId), to: who(toId), amount: money(cents) }), buttons);
+  };
 
   const confirmDelete = (title: string, action: () => Promise<void>) =>
     Alert.alert(title, undefined, [
@@ -115,11 +149,11 @@ export default function ExpenseGroup() {
       <Screen>
         <SectionLabel>{t('exp.balances')}</SectionLabel>
         <Group>
-          {data.members.map((m, i) => {
+          {data.members.filter((m) => !m.left_at).map((m, i) => {
             const v = bal[m.user_id] ?? 0;
             return (
               <Row key={m.user_id} first={i === 0}>
-                <RowTitle>{who(m.user_id)}</RowTitle>
+                <RowTitle>{m.placeholder ? t('exp.notJoined', { name: m.display_name }) : who(m.user_id)}</RowTitle>
                 <RowMeta>
                   {v === 0 ? t('exp.settledUp') : t(v > 0 ? 'exp.isOwed' : 'exp.owes', { amount: money(Math.abs(v)) })}
                 </RowMeta>
@@ -130,7 +164,7 @@ export default function ExpenseGroup() {
 
         {payments.length > 0 && (
           <>
-            <SectionLabel>{t('exp.suggested')}</SectionLabel>
+            <SectionLabel>{t(data.group.simplify_debts ? 'exp.suggested' : 'exp.whoOwes')}</SectionLabel>
             <Group>
               {payments.map((p, i) => (
                 <Row
@@ -146,6 +180,7 @@ export default function ExpenseGroup() {
             </Group>
           </>
         )}
+        <Button label={t('exp.recordPayment')} variant="secondary" onPress={() => router.push(`/expenses/${groupId}/settle`)} style={styles.small} />
 
         <SectionLabel>{t('exp.activity')}</SectionLabel>
         <Field value={query} onChangeText={setQuery} accessibilityLabel={t('exp.search')} placeholder={t('exp.search')} autoCapitalize="none" clearButtonMode="while-editing" />
@@ -158,7 +193,10 @@ export default function ExpenseGroup() {
                 <Row key={a.e.id} first={i === 0} onPress={() => router.push(`/expenses/${groupId}/expense?id=${a.e.id}`)} a11y={a.e.description}>
                   <RowTitle>{a.e.description}</RowTitle>
                   <RowMeta>
-                    {t('exp.paidBy', { who: who(a.e.payer_id), amount: money(a.e.amount_cents) })} · {t(`exp.cat.${a.e.category}`)} · {a.e.spent_on}
+                    {Object.keys(a.e.payers).length > 1
+                      ? t('exp.paidBySeveral', { count: Object.keys(a.e.payers).length, amount: money(a.e.amount_cents) })
+                      : t('exp.paidBy', { who: who(a.e.payer_id), amount: money(a.e.amount_cents) })}
+                    {a.e.original_currency && a.e.original_amount_cents ? ` (${formatCents(a.e.original_amount_cents, a.e.original_currency, locale)})` : ''} · {t(`exp.cat.${a.e.category}`)} · {a.e.spent_on}
                     {a.e.recurring_id ? ` · ${t('exp.repeats')}` : ''}
                     {a.e.receipt_path ? ` · ${t('exp.hasReceipt')}` : ''}
                   </RowMeta>

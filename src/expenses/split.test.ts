@@ -1,4 +1,4 @@
-import { balances, formatCents, parseCents, Settlement, simplifyDebts, splitAmount, splitItemized } from './split';
+import { balances, type Expense, formatCents, pairwiseDebts, parseCents, Settlement, simplifyDebts, splitAmount, splitItemized } from './split';
 
 const sum = (r: Record<string, number>) => Object.values(r).reduce((a, c) => a + c, 0);
 
@@ -138,5 +138,77 @@ describe('parseCents', () => {
 
   it.each(['', '  ', '-5', '1.234', 'abc', '12a', '1,23', '.', '$'])('rejects %p', (text) => {
     expect(parseCents(text)).toBeNull();
+  });
+});
+
+describe('adjust split', () => {
+  it('adds each adjustment on top of an equal split of what is left', () => {
+    // $30 with Ana +$6: the other $24 splits three ways.
+    expect(splitAmount(3000, ['a', 'b', 'c'], 'adjust', { a: 600 })).toEqual({ a: 1400, b: 800, c: 800 });
+    expect(splitAmount(1000, ['a', 'b', 'c'], 'adjust', { b: -100 })).toEqual({ a: 367, b: 267, c: 366 });
+    expect(splitAmount(1000, ['a', 'b'], 'adjust', {})).toEqual({ a: 500, b: 500 });
+  });
+
+  it('refuses adjustments past the total, discounts below zero, and fractional cents', () => {
+    expect(() => splitAmount(1000, ['a', 'b'], 'adjust', { a: 1100 })).toThrow('more than the total');
+    expect(() => splitAmount(1000, ['a', 'b'], 'adjust', { a: -1100 })).toThrow('bigger than');
+    expect(() => splitAmount(1000, ['a', 'b'], 'adjust', { a: 1.5 })).toThrow('whole cents');
+  });
+});
+
+describe('several payers', () => {
+  it('credits each payer with what they paid', () => {
+    const e = { payerId: 'a', payers: { a: 600, b: 400 }, amountCents: 1000, shares: { a: 500, b: 500 } };
+    expect(balances([e], [])).toEqual({ a: 100, b: -100 });
+  });
+
+  it('refuses payers that do not add up', () => {
+    const e = { payerId: 'a', payers: { a: 600, b: 300 }, amountCents: 1000, shares: { a: 500, b: 500 } };
+    expect(() => balances([e], [])).toThrow('Payers must add up');
+  });
+});
+
+describe('pairwiseDebts', () => {
+  it('keeps who owes whom without routing through a third person', () => {
+    // a paid 30 for a,b,c; b paid 30 for b,c. Simplified, c pays a 20 and b pays... pairwise keeps c owing b.
+    const ex: Expense[] = [
+      { payerId: 'a', amountCents: 3000, shares: { a: 1000, b: 1000, c: 1000 } },
+      { payerId: 'b', amountCents: 3000, shares: { b: 1500, c: 1500 } },
+    ];
+    expect(pairwiseDebts(ex, [])).toEqual([
+      { fromId: 'c', toId: 'b', amountCents: 1500 },
+      { fromId: 'b', toId: 'a', amountCents: 1000 },
+      { fromId: 'c', toId: 'a', amountCents: 1000 },
+    ]);
+  });
+
+  it('nets opposite debts, applies payments, and splits a share across several payers', () => {
+    const ex: Expense[] = [
+      { payerId: 'a', amountCents: 1000, shares: { a: 500, b: 500 } },
+      { payerId: 'b', amountCents: 400, shares: { a: 200, b: 200 } },
+      { payerId: 'a', payers: { a: 300, c: 100 }, amountCents: 400, shares: { b: 400 } },
+    ];
+    // b owes a 500 - 200 + 300 = 600 and owes c 100; b paid a 600 already.
+    expect(pairwiseDebts(ex, [{ fromId: 'b', toId: 'a', amountCents: 600 }])).toEqual([{ fromId: 'b', toId: 'c', amountCents: 100 }]);
+    // Overpaying flips the direction.
+    expect(pairwiseDebts(ex, [{ fromId: 'b', toId: 'a', amountCents: 700 }])).toEqual([
+      { fromId: 'a', toId: 'b', amountCents: 100 },
+      { fromId: 'b', toId: 'c', amountCents: 100 },
+    ]);
+  });
+
+  it('agrees with balances: every member nets out the same', () => {
+    const ex: Expense[] = [
+      { payerId: 'a', payers: { a: 700, c: 333 }, amountCents: 1033, shares: { a: 344, b: 344, c: 345 } },
+      { payerId: 'b', amountCents: 999, shares: { a: 333, c: 666 } },
+    ];
+    const st = [{ fromId: 'c', toId: 'b', amountCents: 50 }];
+    const net: Record<string, number> = {};
+    for (const d of pairwiseDebts(ex, st)) {
+      net[d.fromId] = (net[d.fromId] ?? 0) - d.amountCents;
+      net[d.toId] = (net[d.toId] ?? 0) + d.amountCents;
+    }
+    const bal = balances(ex, st);
+    for (const id of Object.keys(bal)) expect(net[id] ?? 0).toBe(bal[id]);
   });
 });

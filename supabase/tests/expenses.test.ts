@@ -51,7 +51,7 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString
   let group: { id: string; invite_code: string };
 
   const expense = (over: object = {}) => ({
-    p_id: null, p_group: group.id, p_description: 'Groceries', p_amount: 1000, p_payer: a.id, p_category: 'groceries',
+    p_id: null, p_group: group.id, p_description: 'Groceries', p_amount: 1000, p_payers: { [a.id]: 1000 }, p_category: 'groceries',
     p_spent_on: null, p_split_mode: 'equal', p_shares: { [a.id]: 500, [b.id]: 500 }, ...over,
   });
 
@@ -92,7 +92,7 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString
 
   it('edits an expense and replaces its shares', async () => {
     const saved = await rpc(a.token, 'save_expense', expense());
-    const edited = await rpc(a.token, 'save_expense', expense({ p_id: saved.body.id, p_amount: 900, p_shares: { [b.id]: 900 } }));
+    const edited = await rpc(a.token, 'save_expense', expense({ p_id: saved.body.id, p_amount: 900, p_payers: { [a.id]: 900 }, p_shares: { [b.id]: 900 } }));
     expect(edited.ok).toBe(true);
     expect((await select(a.token, `expense_shares?expense_id=eq.${saved.body.id}&select=user_id,amount_cents`)).body)
       .toEqual([{ user_id: b.id, amount_cents: 900 }]);
@@ -108,7 +108,7 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString
   });
 
   it('refuses a payer who is not a member and an outsider writing to the group', async () => {
-    expect((await rpc(a.token, 'save_expense', expense({ p_payer: outsider.id }))).ok).toBe(false);
+    expect((await rpc(a.token, 'save_expense', expense({ p_payers: { [outsider.id]: 1000 } }))).ok).toBe(false);
     const res = await rpc(outsider.token, 'save_expense', expense());
     expect(res.ok).toBe(false);
     expect(res.body.code).toBe('42501');
@@ -142,9 +142,9 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString
 
   it('a member can delete an expense; an outsider cannot', async () => {
     const saved = await rpc(a.token, 'save_expense', expense());
-    await call(`/rest/v1/expenses?id=eq.${saved.body.id}`, outsider.token, 'DELETE');
-    expect((await select(a.token, `expenses?id=eq.${saved.body.id}&select=id`)).body).toHaveLength(1);
-    await call(`/rest/v1/expenses?id=eq.${saved.body.id}`, b.token, 'DELETE');
-    expect((await select(a.token, `expenses?id=eq.${saved.body.id}&select=id`)).body).toEqual([]);
+    expect((await rpc(outsider.token, 'delete_expense', { p_id: saved.body.id })).ok).toBe(false);
+    expect((await select(a.token, `expenses?id=eq.${saved.body.id}&select=deleted_at`)).body).toEqual([{ deleted_at: null }]);
+    expect((await rpc(b.token, 'delete_expense', { p_id: saved.body.id })).ok).toBe(true);
+    expect((await select(a.token, `expenses?id=eq.${saved.body.id}&select=deleted_at`)).body[0].deleted_at).not.toBeNull();
   });
 });

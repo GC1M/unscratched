@@ -1,8 +1,11 @@
 /** How an expense total is divided among members. */
-export type SplitMode = 'equal' | 'exact' | 'percent' | 'shares';
+export type SplitMode = 'equal' | 'exact' | 'percent' | 'shares' | 'adjust';
 
-/** One expense: who paid, how much, and each member's share in cents (shares sum to amountCents). */
-export type Expense = { payerId: string; amountCents: number; shares: Record<string, number> };
+/**
+ * One expense: who paid, how much, and each member's share in cents (shares sum to amountCents). `payers` (cents per
+ * payer, summing to amountCents) replaces payerId when several people paid.
+ */
+export type Expense = { payerId: string; payers?: Record<string, number>; amountCents: number; shares: Record<string, number> };
 
 /** A payment of amountCents from fromId to toId. */
 export type Settlement = { fromId: string; toId: string; amountCents: number };
@@ -40,7 +43,8 @@ const toRecord = (ids: string[], values: number[]) => Object.fromEntries(ids.map
 
 /**
  * Splits totalCents among members. weights are cents for 'exact', percentages for 'percent'
- * (must total 100) and share counts for 'shares'. The result always sums to totalCents.
+ * (must total 100), share counts for 'shares', and signed cents for 'adjust' (each person's extra or discount on top
+ * of an equal split of what is left). The result always sums to totalCents.
  */
 export function splitAmount(
   totalCents: number,
@@ -54,6 +58,15 @@ export function splitAmount(
     if (!members.includes(id)) throw new Error(`Weight given for unknown member ${id}`);
   }
   if (mode === 'equal') return toRecord(members, allocate(totalCents, members.map(() => 1)));
+  if (mode === 'adjust') {
+    const adj = members.map((id) => weights[id] ?? 0);
+    if (adj.some((a) => !Number.isSafeInteger(a))) throw new Error('Adjustments must be whole cents');
+    const rest = totalCents - adj.reduce((a, b) => a + b, 0);
+    if (rest < 0) throw new Error('Adjustments add up to more than the total');
+    const out = allocate(rest, members.map(() => 1)).map((c, i) => c + adj[i]);
+    if (out.some((c) => c < 0)) throw new Error('A discount is bigger than that person\'s share');
+    return toRecord(members, out);
+  }
 
   const raw = members.map((id) => weights[id] ?? 0);
   for (const w of raw) {
@@ -113,7 +126,9 @@ export function balances(expenses: Expense[], settlements: Settlement[]): Record
   for (const e of expenses) {
     assertCents(e.amountCents, 'Expense amount');
     let sum = 0;
-    add(e.payerId, e.amountCents);
+    const payers = e.payers ?? { [e.payerId]: e.amountCents };
+    if (Object.values(payers).reduce((a, c) => a + c, 0) !== e.amountCents) throw new Error('Payers must add up to the amount');
+    for (const [id, cents] of Object.entries(payers)) add(id, cents);
     for (const [id, share] of Object.entries(e.shares)) {
       assertCents(share, 'Share');
       sum += share;
@@ -155,6 +170,34 @@ export function simplifyDebts(bal: Record<string, number>): Settlement[] {
     left[debtor] += amountCents;
   }
   return out;
+}
+
+/**
+ * Debts without simplification: who owes whom from the expenses themselves, netted per pair. A share is owed to the
+ * payers in proportion to what each paid; a payment reduces the payer's debt to the receiver (or creates the reverse).
+ */
+export function pairwiseDebts(expenses: Expense[], settlements: Settlement[]): Settlement[] {
+  const owe = new Map<string, number>(); // "from|to" -> cents, kept with from < to; negative means to owes from
+  const add = (from: string, to: string, cents: number) => {
+    if (from === to || !cents) return;
+    const [k, sign] = from < to ? [`${from}|${to}`, 1] : [`${to}|${from}`, -1];
+    owe.set(k, (owe.get(k) ?? 0) + sign * cents);
+  };
+  for (const e of expenses) {
+    const payers = Object.entries(e.payers ?? { [e.payerId]: e.amountCents });
+    for (const [id, share] of Object.entries(e.shares)) {
+      if (!share) continue;
+      allocate(share, payers.map(([, c]) => c)).forEach((part, i) => add(id, payers[i][0], part));
+    }
+  }
+  for (const s of settlements) add(s.fromId, s.toId, -s.amountCents);
+  return [...owe]
+    .filter(([, v]) => v !== 0)
+    .map(([k, v]) => {
+      const [a, b] = k.split('|');
+      return v > 0 ? { fromId: a, toId: b, amountCents: v } : { fromId: b, toId: a, amountCents: -v };
+    })
+    .sort((x, y) => y.amountCents - x.amountCents || (x.fromId < y.fromId ? -1 : 1));
 }
 
 /** Formats integer cents as a localized currency string, e.g. formatCents(1234, 'USD', 'en-US') -> "$12.34". */

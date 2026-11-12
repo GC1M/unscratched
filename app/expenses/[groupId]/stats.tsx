@@ -6,7 +6,7 @@ import { SectionLabel } from '@/components/Group';
 import { Screen } from '@/components/Screen';
 import { Loading, Problem, errorMessage } from '@/components/Status';
 import { loadGroup } from '@/expenses/api';
-import { byCategory, byMonth, spentPerMember } from '@/expenses/report';
+import { byCategory, byMonth, paidPerMember, spentPerMember } from '@/expenses/report';
 import { formatCents } from '@/expenses/split';
 import type { GroupData } from '@/expenses/types';
 import { useT } from '@/i18n/context';
@@ -37,6 +37,8 @@ export default function Stats() {
   const names = Object.fromEntries(data.members.map((m) => [m.user_id, m.display_name]));
   const total = data.expenses.reduce((s, e) => s + e.amount_cents, 0);
   const perMember = spentPerMember(data.expenses);
+  const paid = paidPerMember(data.expenses);
+  const active = data.members.filter((m) => !m.left_at || perMember[m.user_id] || paid[m.user_id]);
 
   return (
     <>
@@ -58,7 +60,9 @@ export default function Stats() {
               }))}
             />
             <SectionLabel>{t('exp.byMember')}</SectionLabel>
-            <Bars money={money} rows={data.members.map((m) => ({ label: names[m.user_id], cents: perMember[m.user_id] ?? 0 }))} />
+            <Bars money={money} rows={active.map((m) => ({ label: names[m.user_id], cents: perMember[m.user_id] ?? 0 }))} />
+            <SectionLabel>{t('exp.paidPerMember')}</SectionLabel>
+            <Bars money={money} rows={active.map((m) => ({ label: names[m.user_id], cents: paid[m.user_id] ?? 0 }))} />
           </>
         )}
       </Screen>

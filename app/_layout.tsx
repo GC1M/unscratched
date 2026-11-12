@@ -46,6 +46,9 @@ function Navigator() {
           <Stack.Screen name="expenses/[groupId]/index" />
           <Stack.Screen name="expenses/[groupId]/expense" />
           <Stack.Screen name="expenses/[groupId]/stats" />
+          <Stack.Screen name="expenses/[groupId]/settle" />
+          <Stack.Screen name="expenses/[groupId]/history" />
+          <Stack.Screen name="expenses/[groupId]/settings" />
         </Stack.Protected>
         <Stack.Protected guard={!onboarded}>
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />
