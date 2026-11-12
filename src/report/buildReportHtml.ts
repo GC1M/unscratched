@@ -106,11 +106,15 @@ ${cards.length ? `<div class="grid">\n${cards.join('\n')}\n</div>` : ''}
 
   const tenant = acknowledgement?.tenantName ? escapeHtml(acknowledgement.tenantName) : BLANK;
   const signature = signatureSvg(acknowledgement?.tenantSignature) ?? '';
+  const roommates = (acknowledgement?.roommates ?? [])
+    .filter((r) => r.name.trim())
+    .map((r) => `<p>${t('pdf.tenant')}: ${escapeHtml(r.name.trim())}${signatureSvg(r.signature) ?? ''}</p>\n`)
+    .join('');
   const landlord = acknowledgement?.landlordName ? escapeHtml(acknowledgement.landlordName) : BLANK;
   const ack = `<section class="ack">
 <p>${t('pdf.confirm', { date: fmt(inspection.finished_at ?? generatedAt) })}</p>
 <p>${t('pdf.tenant')}: ${tenant}${signature}</p>
-<p>${t('common.landlordOrManager')}: ${landlord}</p>
+${roommates}<p>${t('common.landlordOrManager')}: ${landlord}</p>
 </section>`;
 
   return `<!DOCTYPE html>

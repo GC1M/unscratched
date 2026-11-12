@@ -46,13 +46,16 @@ export async function exportReport(db: SQLiteDatabase, inspectionId: number, ack
   return uri;
 }
 
+const tenantNames = (ack: Acknowledgement | null) =>
+  [ack?.tenantName ?? '', ...(ack?.roommates ?? []).map((r) => r.name.trim()).filter(Boolean)];
+
 /** Subject and plain-text body for the landlord email. The verify link is included only once the report has a code. */
 export function landlordMessage({ inspection, acknowledgement, verificationCode }: ReportData, lang: Lang = 'en'): { subject: string; body: string } {
   const t = translator(lang);
   const place = inspection.unit ? `${inspection.address}, ${inspection.unit}` : inspection.address;
   const lines = [t('email.hello'), '', t('email.attached', { kind: t(`kind.${inspection.kind}`).toLowerCase(), place })];
   if (verificationCode) lines.push('', t('email.verify', { link: `https://unscratched.app/v/${verificationCode}` }));
-  lines.push('', t('email.thanks'), acknowledgement?.tenantName ?? '');
+  lines.push('', t('email.thanks'), ...tenantNames(acknowledgement));
   return { subject: `${t(`pdf.title.${inspection.kind}`)}: ${place}`, body: lines.join('\n').trimEnd() };
 }
 

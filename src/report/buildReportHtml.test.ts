@@ -166,6 +166,24 @@ test('a malicious signature value is dropped, not rendered raw', () => {
   expect(html).toContain('<p>Tenant: Ana Ruiz</p>');
 });
 
+test('roommates get their own escaped tenant line with signature; blank roommates are skipped', () => {
+  const data = fixture();
+  data.acknowledgement = {
+    ...data.acknowledgement!,
+    roommates: [
+      { name: ' Bo <b>Lee</b> ', signature: 'M1 2L3 4' },
+      { name: '  ', signature: 'M5 6L7 8' },
+      { name: 'Cy', signature: 'M0 0L1 1"/><script>' },
+    ],
+  };
+  const html = buildReportHtml(data, { formatDate });
+  expect(html).toContain('<p>Tenant: Ana Ruiz</p>\n<p>Tenant: Bo &lt;b&gt;Lee&lt;/b&gt;<svg class="sig"');
+  expect(html).toContain('<path d="M1 2L3 4"');
+  expect(html).not.toContain('M5 6L7 8');
+  expect(html).toContain('<p>Tenant: Cy</p>\n<p>Landlord or manager:');
+  expect(html).not.toContain('<script>');
+});
+
 test('a photo with a receipt shows its server time, the others show "Receipt pending"', () => {
   const html = buildReportHtml(fixture(), { formatDate });
   expect(html.match(/Server time: /g)).toHaveLength(1);

@@ -39,8 +39,25 @@ test('Export PDF is disabled until the tenant name is filled, then exports with 
   await fireEvent.changeText(screen.getByLabelText('Landlord or manager typed name'), ' ');
   expect(button).toBeEnabled();
   await fireEvent.press(button);
-  expect(exportReport).toHaveBeenCalledWith({}, 1, { tenantName: 'Ana Ruiz', landlordName: null, date: finishedAt, tenantSignature: null }, 'en');
+  expect(exportReport).toHaveBeenCalledWith({}, 1, { tenantName: 'Ana Ruiz', landlordName: null, date: finishedAt, tenantSignature: null, roommates: [] }, 'en');
   expect(repo.getInspection).toHaveBeenCalledTimes(1);
+});
+
+test('roommates can be added, named, and removed; each one goes in the acknowledgement', async () => {
+  await render(<ExportReport />);
+  await fireEvent.changeText(await screen.findByLabelText('Tenant typed name'), 'Ana');
+  await fireEvent.press(screen.getByRole('button', { name: 'Add roommate' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Add roommate' }));
+  await fireEvent.changeText(screen.getByLabelText('Roommate 1 typed name'), 'Bo');
+  await fireEvent.changeText(screen.getByLabelText('Roommate 2 typed name'), 'Cy');
+  expect(screen.getByLabelText('Roommate 2 signature pad')).toBeOnTheScreen();
+  await fireEvent.press(screen.getByRole('button', { name: 'Remove roommate 1' }));
+  expect(screen.getByLabelText('Roommate 1 typed name').props.value).toBe('Cy');
+  expect(screen.queryByLabelText('Roommate 2 typed name')).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: 'Export PDF' }));
+  expect(exportReport).toHaveBeenCalledWith(
+    {}, 1, { tenantName: 'Ana', landlordName: 'Lee', date: finishedAt, tenantSignature: null, roommates: [{ name: 'Cy', signature: null }] }, 'en',
+  );
 });
 
 test('prefills names from the inspection and shows an alert when export fails', async () => {
@@ -52,7 +69,7 @@ test('prefills names from the inspection and shows an alert when export fails', 
   await render(<ExportReport />);
   await screen.findByDisplayValue('Ana');
   await fireEvent.press(screen.getByRole('button', { name: 'Export PDF' }));
-  expect(exportReport).toHaveBeenCalledWith({}, 1, { tenantName: 'Ana', landlordName: 'Lee', date: finishedAt, tenantSignature: null }, 'en');
+  expect(exportReport).toHaveBeenCalledWith({}, 1, { tenantName: 'Ana', landlordName: 'Lee', date: finishedAt, tenantSignature: null, roommates: [] }, 'en');
   expect(alert).toHaveBeenCalledWith('Export failed', 'boom');
 });
 
@@ -81,7 +98,7 @@ test('Send to landlord sends with the typed names; nothing more after an email',
   expect(send).toBeDisabled();
   await fireEvent.changeText(screen.getByLabelText('Tenant typed name'), 'Ana');
   await fireEvent.press(send);
-  expect(sendReport).toHaveBeenCalledWith({}, 1, { tenantName: 'Ana', landlordName: 'Lee', date: finishedAt, tenantSignature: null }, 'en');
+  expect(sendReport).toHaveBeenCalledWith({}, 1, { tenantName: 'Ana', landlordName: 'Lee', date: finishedAt, tenantSignature: null, roommates: [] }, 'en');
   expect(alert).not.toHaveBeenCalled();
 });
 
