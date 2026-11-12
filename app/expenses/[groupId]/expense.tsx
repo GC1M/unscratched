@@ -9,17 +9,32 @@ import { Field } from '@/components/Field';
 import { SectionLabel } from '@/components/Group';
 import { Screen } from '@/components/Screen';
 import { Loading, Problem, errorMessage } from '@/components/Status';
-import { currentUserId, deleteExpense, loadGroup, localToday, receiptUrl, saveExpense, saveRecurring, uploadReceipt } from '@/expenses/api';
+import {
+  addComment, currentUserId, deleteComment, deleteExpense, exchangeRate, listComments, loadGroup, localToday, receiptUrl, saveExpense,
+  saveRecurring, uploadReceipt,
+} from '@/expenses/api';
 import { formatCents, parseCents, splitAmount, splitItemized } from '@/expenses/split';
-import { CATEGORIES, type Category, type Every, type GroupData, type SplitModeDb } from '@/expenses/types';
+import { CATEGORIES, type Category, type CommentRow, type Every, type GroupData, type SplitModeDb } from '@/expenses/types';
 import { useT } from '@/i18n/context';
 import { useTheme } from '@/theme';
 
 type Item = { name: string; amount: string; members: string[] };
-const MODES: SplitModeDb[] = ['equal', 'exact', 'percent', 'shares', 'itemized'];
+const MODES: SplitModeDb[] = ['equal', 'exact', 'percent', 'shares', 'adjust', 'itemized'];
+const SEVERAL = '__several';
+
+/** "+1.50", "-2", "3" as signed cents, or null. */
+const signedCents = (raw: string) => {
+  const m = /^([+-]?)\s*(.*)$/.exec(raw.trim())!;
+  const v = parseCents(m[2]);
+  return v == null ? null : m[1] === '-' ? -v : v;
+};
+const toText = (cents: number) => (cents / 100).toFixed(2);
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Add or edit an expense: amount, payer, category, date, any split mode, receipt photo, and repeat. */
+/**
+ * Add or edit an expense: amount (in any currency), one or several payers, category, date, any split mode, notes,
+ * receipt photo, repeat, and comments.
+ */
 export default function ExpenseEditor() {
   const { c } = useTheme();
   const { t, locale } = useT();
@@ -31,6 +46,13 @@ export default function ExpenseEditor() {
   const [category, setCategory] = useState<Category>('general');
   const [spentOn, setSpentOn] = useState(localToday());
   const [payer, setPayer] = useState('');
+  const [paid, setPaid] = useState<Record<string, string>>({}); // per payer, when SEVERAL paid
+  const [currency, setCurrency] = useState('');
+  const [rate, setRate] = useState('');
+  const [notes, setNotes] = useState('');
+  const [comments, setComments] = useState<CommentRow[]>([]);
+  const [comment, setComment] = useState('');
+  const [me, setMe] = useState<string | null>(null);
   const [mode, setMode] = useState<SplitModeDb>('equal');
   const [included, setIncluded] = useState<string[]>([]);
   const [weights, setWeights] = useState<Record<string, string>>({});
@@ -47,41 +69,79 @@ export default function ExpenseEditor() {
 
   useEffect(() => {
     (async () => {
-      const [d, me] = await Promise.all([loadGroup(groupId), currentUserId()]);
-      const ids = d.members.map((m) => m.user_id);
+      const [d, myId] = await Promise.all([loadGroup(groupId), currentUserId()]);
+      const ids = d.members.filter((m) => !m.left_at).map((m) => m.user_id);
       setData(d);
+      setMe(myId);
       setIncluded(ids);
-      setPayer(me && ids.includes(me) ? me : ids[0]);
+      setCurrency(d.group.currency);
+      setPayer(myId && ids.includes(myId) ? myId : ids[0]);
       setItems([{ name: '', amount: '', members: ids }]);
       const e = id ? d.expenses.find((x) => x.id === id) : undefined;
       if (id && !e) return setLoadError(t('exp.notFound'));
-      if (!e) return;
+      if (!e) {
+        // A group's default split starts every new expense as shares.
+        const def = d.group.default_shares;
+        if (def && Object.keys(def).some((k) => ids.includes(k))) {
+          setMode('shares');
+          setWeights(Object.fromEntries(ids.map((m) => [m, String(def[m] ?? 0)])));
+        }
+        return;
+      }
+      listComments(e.id).then(setComments, () => {});
+      // Amounts are edited in the currency they were typed in; stored cents are in the group's currency.
+      const total = e.original_amount_cents ?? e.amount_cents;
+      const back = (r: Record<string, number>, keys: string[]) =>
+        e.original_amount_cents ? splitAmount(total, keys, 'shares', Object.fromEntries(keys.map((k) => [k, r[k] ?? 0]))) : r;
+      if (e.original_currency && e.original_amount_cents) {
+        setCurrency(e.original_currency);
+        setRate(String(e.amount_cents / e.original_amount_cents));
+      }
       setDescription(e.description);
-      setAmount((e.amount_cents / 100).toFixed(2));
+      setAmount(toText(total));
       setCategory(e.category);
       setSpentOn(e.spent_on);
-      setPayer(e.payer_id);
+      setNotes(e.notes ?? '');
+      const payerIds = Object.keys(e.payers);
+      if (payerIds.length > 1) {
+        setPayer(SEVERAL);
+        const p = back(e.payers, payerIds);
+        setPaid(Object.fromEntries(payerIds.map((k) => [k, toText(p[k])])));
+      } else setPayer(e.payer_id);
       setReceiptPath(e.receipt_path);
       if (e.receipt_path) receiptUrl(e.receipt_path).then(setPhoto, () => {});
       if (e.split_mode === 'itemized' && e.items?.length) {
         setMode('itemized');
-        setItems(e.items.map((it) => ({ name: it.name, amount: (it.cents / 100).toFixed(2), members: it.members })));
-        const extraCents = e.amount_cents - e.items.reduce((s, it) => s + it.cents, 0);
-        setExtras(extraCents ? (extraCents / 100).toFixed(2) : '');
+        setItems(e.items.map((it) => ({ name: it.name, amount: toText(it.cents), members: it.members })));
+        const extraCents = total - e.items.reduce((s, it) => s + it.cents, 0);
+        setExtras(extraCents ? toText(extraCents) : '');
       } else if (e.split_mode === 'equal') {
         setIncluded(ids.filter((m) => (e.shares[m] ?? 0) > 0));
       } else {
-        // Percent and share weights are not stored, only the cents they produced, so edit them as exact amounts.
+        // Percent, share and adjustment inputs are not stored, only the cents they produced, so edit them as exact amounts.
         setMode('exact');
-        setWeights(Object.fromEntries(ids.map((m) => [m, ((e.shares[m] ?? 0) / 100).toFixed(2)])));
+        const sh = back(e.shares, Object.keys(e.shares));
+        setWeights(Object.fromEntries(ids.map((m) => [m, toText(sh[m] ?? 0)])));
       }
     })().catch((e: unknown) => setLoadError(errorMessage(e)));
   }, [groupId, id, t]);
 
-  const ids = data?.members.map((m) => m.user_id) ?? [];
+  const ids = data?.members.filter((m) => !m.left_at).map((m) => m.user_id) ?? [];
+  const foreign = !!data && currency !== data.group.currency;
+  const canRepeat = !id && mode !== 'itemized' && payer !== SEVERAL && !foreign;
 
-  // Total and shares from the form, or the reason they can't be computed yet.
-  const computed = ((): { total: number; shares: Record<string, number> } | { error: string } => {
+  // A foreign currency gets today's rate filled in; it stays editable.
+  useEffect(() => {
+    if (!data || !/^[A-Z]{3}$/.test(currency) || currency === data.group.currency || id) return;
+    let live = true;
+    exchangeRate(currency, data.group.currency).then((r) => live && setRate(String(r)), () => live && setRate(''));
+    return () => {
+      live = false;
+    };
+  }, [currency, data, id]);
+
+  // In the currency typed: total, shares and payers. Then converted to the group's currency if needed.
+  const typed = ((): { total: number; shares: Record<string, number> } | { error: string } => {
     try {
       if (mode === 'itemized') {
         const lines = items.map((it) => ({ cents: parseCents(it.amount), members: it.members }));
@@ -100,8 +160,8 @@ export default function ExpenseEditor() {
       const parsed: Record<string, number> = {};
       for (const m of ids) {
         const raw = (weights[m] ?? '').trim();
-        const v = !raw ? 0 : mode === 'exact' ? parseCents(raw) : Number(raw);
-        if (v == null || !Number.isFinite(v) || v < 0) return { error: t('exp.badAmount') };
+        const v = !raw ? 0 : mode === 'exact' ? parseCents(raw) : mode === 'adjust' ? signedCents(raw) : Number(raw);
+        if (v == null || !Number.isFinite(v) || (v < 0 && mode !== 'adjust')) return { error: t('exp.badAmount') };
         parsed[m] = v;
       }
       return { total, shares: splitAmount(total, ids, mode, parsed) };
@@ -109,10 +169,36 @@ export default function ExpenseEditor() {
       const total = parseCents(amount) ?? 0;
       if (mode === 'exact') {
         const sum = ids.reduce((s, m) => s + (parseCents(weights[m] ?? '') ?? 0), 0);
-        return { error: t('exp.exactOff', { left: formatCents(total - sum, data?.group.currency ?? 'USD', locale) }) };
+        return { error: t('exp.exactOff', { left: formatCents(total - sum, /^[A-Z]{3}$/.test(currency) ? currency : 'USD', locale) }) };
       }
-      return { error: t(mode === 'percent' ? 'exp.percentOff' : 'exp.sharesOff') };
+      return { error: t(mode === 'percent' ? 'exp.percentOff' : mode === 'adjust' ? 'exp.adjustOff' : 'exp.sharesOff') };
     }
+  })();
+
+  const computed = ((): { total: number; shares: Record<string, number>; payers: Record<string, number> } | { error: string } => {
+    if ('error' in typed) return typed;
+    let payers: Record<string, number> = { [payer]: typed.total };
+    if (payer === SEVERAL) {
+      payers = {};
+      for (const m of ids) {
+        const v = (paid[m] ?? '').trim() ? parseCents(paid[m]) : 0;
+        if (v == null) return { error: t('exp.badAmount') };
+        if (v > 0) payers[m] = v;
+      }
+      const sum = Object.values(payers).reduce((a, b) => a + b, 0);
+      if (sum !== typed.total) return { error: t('exp.payersOff', { left: formatCents(typed.total - sum, /^[A-Z]{3}$/.test(currency) ? currency : 'USD', locale) }) };
+    }
+    if (!foreign) return { ...typed, payers };
+    const r = Number(rate);
+    if (!/^[A-Z]{3}$/.test(currency) || !(r > 0)) return { error: t('exp.needRate') };
+    const total = Math.round(typed.total * r);
+    if (total < 1) return { error: t('exp.badAmount') };
+    // Converted in proportion, so shares and payers still add up exactly in the group's currency.
+    const convert = (x: Record<string, number>) => {
+      const keys = Object.keys(x).filter((k) => x[k] > 0);
+      return { ...Object.fromEntries(Object.keys(x).map((k) => [k, 0])), ...splitAmount(total, keys, 'shares', Object.fromEntries(keys.map((k) => [k, x[k]]))) };
+    };
+    return { total, shares: convert(typed.shares), payers: convert(payers) };
   })();
 
   const takePhoto = async () => {
@@ -131,16 +217,18 @@ export default function ExpenseEditor() {
     setSaving(true);
     try {
       const base = {
-        groupId, description: description.trim(), amountCents: computed.total, payerId: payer, category, splitMode: mode,
-        shares: computed.shares,
+        groupId, description: description.trim(), amountCents: computed.total, category, splitMode: mode, shares: computed.shares,
       };
-      if (repeat !== 'none' && !id) {
+      if (repeat !== 'none' && canRepeat) {
         // The first occurrence is added by the server on the next load, so it is not also saved here.
-        await saveRecurring({ ...base, every: repeat, nextOn: spentOn });
+        await saveRecurring({ ...base, payerId: payer, every: repeat, nextOn: spentOn });
       } else {
         const path = newPhoto ? await uploadReceipt(groupId, newPhoto) : receiptPath;
         const lines = mode === 'itemized' ? items.map((it) => ({ name: it.name.trim(), cents: parseCents(it.amount) ?? 0, members: it.members })) : null;
-        await saveExpense({ ...base, id: id ?? null, spentOn, items: lines, receiptPath: path });
+        await saveExpense({
+          ...base, id: id ?? null, payers: computed.payers, spentOn, items: lines, receiptPath: path, notes: notes.trim() || null,
+          original: foreign && !('error' in typed) ? { currency, cents: typed.total } : null,
+        });
       }
       router.back();
     } catch (e) {
@@ -192,7 +280,17 @@ export default function ExpenseEditor() {
     );
   }
 
-  const people = data.members.map((m) => ({ value: m.user_id, label: m.display_name }));
+  const active = data.members.filter((m) => !m.left_at);
+  const people = active.map((m) => ({ value: m.user_id, label: m.display_name }));
+  const names = Object.fromEntries(data.members.map((m) => [m.user_id, m.display_name]));
+  const postComment = () =>
+    addComment(groupId, id!, comment).then(
+      () => {
+        setComment('');
+        return listComments(id!).then(setComments);
+      },
+      (e: unknown) => Alert.alert(t('exp.failed'), errorMessage(e)),
+    );
   const toggle = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   const setItem = (i: number, patch: Partial<Item>) => setItems((its) => its.map((it, j) => (j === i ? { ...it, ...patch } : it)));
   const money = (cents: number) => formatCents(cents, data.group.currency, locale);
@@ -205,12 +303,37 @@ export default function ExpenseEditor() {
         <Field value={description} onChangeText={setDescription} accessibilityLabel={t('exp.description')} placeholder={t('exp.descriptionHint')} />
         {mode !== 'itemized' && (
           <>
-            <SectionLabel>{t('exp.amount', { currency: data.group.currency })}</SectionLabel>
-            <Field value={amount} onChangeText={setAmount} accessibilityLabel={t('exp.amount', { currency: data.group.currency })} keyboardType="decimal-pad" placeholder="0.00" />
+            <SectionLabel>{t('exp.amount', { currency })}</SectionLabel>
+            <Field value={amount} onChangeText={setAmount} accessibilityLabel={t('exp.amount', { currency })} keyboardType="decimal-pad" placeholder="0.00" />
+          </>
+        )}
+        <SectionLabel>{t('exp.currencyLabel')}</SectionLabel>
+        <Field value={currency} onChangeText={(v) => setCurrency(v.toUpperCase())} accessibilityLabel={t('exp.currencyLabel')} autoCapitalize="characters" maxLength={3} />
+        {foreign && (
+          <>
+            <SectionLabel>{t('exp.rate', { from: currency, to: data.group.currency })}</SectionLabel>
+            <Field value={rate} onChangeText={setRate} accessibilityLabel={t('exp.rate', { from: currency, to: data.group.currency })} keyboardType="decimal-pad" />
           </>
         )}
         <SectionLabel>{t('exp.paidByLabel')}</SectionLabel>
-        <Chips options={people} selected={[payer]} onToggle={setPayer} a11y={t('exp.paidByLabel')} />
+        <Chips options={[...people, { value: SEVERAL, label: t('exp.severalPayers') }]} selected={[payer]} onToggle={setPayer} a11y={t('exp.paidByLabel')} />
+        {payer === SEVERAL && (
+          <View style={styles.split}>
+            {active.map((m) => (
+              <View key={m.user_id} style={styles.weightRow}>
+                <Text style={[styles.weightName, { color: c.ink }]}>{m.display_name}</Text>
+                <Field
+                  style={styles.weightField}
+                  value={paid[m.user_id] ?? ''}
+                  onChangeText={(v) => setPaid((p) => ({ ...p, [m.user_id]: v }))}
+                  accessibilityLabel={t('exp.paidAmount', { name: m.display_name })}
+                  placeholder="0.00"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            ))}
+          </View>
+        )}
         <SectionLabel>{t('exp.category')}</SectionLabel>
         <Chips options={CATEGORIES.map((v) => ({ value: v, label: t(`exp.cat.${v}`) }))} selected={[category]} onToggle={setCategory} a11y={t('exp.category')} />
         <SectionLabel>{t('exp.date')}</SectionLabel>
@@ -220,8 +343,8 @@ export default function ExpenseEditor() {
         <Chips options={MODES.map((v) => ({ value: v, label: t(`exp.mode.${v}`) }))} selected={[mode]} onToggle={setMode} a11y={t('exp.split')} />
         <View style={styles.split}>
           {mode === 'equal' && <Chips multi options={people} selected={included} onToggle={(v) => setIncluded((l) => toggle(l, v))} a11y={t('exp.splitBetween')} />}
-          {(mode === 'exact' || mode === 'percent' || mode === 'shares') &&
-            data.members.map((m) => (
+          {(mode === 'exact' || mode === 'percent' || mode === 'shares' || mode === 'adjust') &&
+            active.map((m) => (
               <View key={m.user_id} style={styles.weightRow}>
                 <Text style={[styles.weightName, { color: c.ink }]}>{m.display_name}</Text>
                 <Field
@@ -229,8 +352,8 @@ export default function ExpenseEditor() {
                   value={weights[m.user_id] ?? ''}
                   onChangeText={(v) => setWeights((w) => ({ ...w, [m.user_id]: v }))}
                   accessibilityLabel={t(`exp.weight.${mode}`, { name: m.display_name })}
-                  placeholder={mode === 'exact' ? '0.00' : mode === 'percent' ? '%' : '1'}
-                  keyboardType="decimal-pad"
+                  placeholder={mode === 'exact' ? '0.00' : mode === 'percent' ? '%' : mode === 'adjust' ? '+/- 0.00' : '1'}
+                  keyboardType={mode === 'adjust' ? 'numbers-and-punctuation' : 'decimal-pad'}
                 />
               </View>
             ))}
@@ -257,13 +380,16 @@ export default function ExpenseEditor() {
         <Text accessibilityLiveRegion="polite" style={[styles.summary, { color: 'error' in computed ? c.damaged : c.ink60 }]}>
           {'error' in computed
             ? computed.error
-            : data.members
+            : active
                 .filter((m) => computed.shares[m.user_id])
                 .map((m) => `${m.display_name} ${money(computed.shares[m.user_id])}`)
-                .join(' · ') + (mode === 'itemized' ? ` · ${t('exp.total', { amount: money(computed.total) })}` : '')}
+                .join(' · ') + (mode === 'itemized' || foreign ? ` · ${t('exp.total', { amount: money(computed.total) })}` : '')}
         </Text>
 
-        {!id && mode !== 'itemized' && (
+        <SectionLabel>{t('exp.notes')}</SectionLabel>
+        <Field value={notes} onChangeText={setNotes} accessibilityLabel={t('exp.notes')} multiline maxLength={500} />
+
+        {canRepeat && (
           <>
             <SectionLabel>{t('exp.repeat')}</SectionLabel>
             <Chips
@@ -275,7 +401,7 @@ export default function ExpenseEditor() {
           </>
         )}
 
-        {repeat === 'none' && (
+        {(repeat === 'none' || !canRepeat) && (
           <>
             <SectionLabel>{t('exp.receipt')}</SectionLabel>
             {photo && <Image source={{ uri: photo }} style={styles.photo} resizeMode="cover" accessibilityLabel={t('exp.receipt')} />}
@@ -285,6 +411,31 @@ export default function ExpenseEditor() {
 
         <Button label={t(saving ? 'exp.saving' : 'exp.save')} a11y={t('exp.save')} disabled={'error' in computed} busy={saving} onPress={save} style={styles.button} />
         {id && <Button label={t('exp.deleteExpense')} variant="danger" onPress={remove} style={styles.small} />}
+
+        {id && (
+          <>
+            <SectionLabel>{t('exp.comments')}</SectionLabel>
+            {comments.length === 0 && <Text style={[styles.summary, { color: c.ink60 }]}>{t('exp.noComments')}</Text>}
+            {comments.map((cm) => (
+              <View key={cm.id} style={styles.comment}>
+                <Text style={[styles.commentText, { color: c.ink }]}>
+                  <Text style={styles.bold}>{names[cm.user_id] ?? '?'}: </Text>
+                  {cm.body}
+                </Text>
+                {cm.user_id === me && (
+                  <Button
+                    label={t('exp.delete')}
+                    a11y={t('exp.deleteComment')}
+                    variant="tertiary"
+                    onPress={() => deleteComment(cm.id).then(() => setComments((l) => l.filter((x) => x.id !== cm.id)), (e: unknown) => Alert.alert(t('exp.failed'), errorMessage(e)))}
+                  />
+                )}
+              </View>
+            ))}
+            <Field value={comment} onChangeText={setComment} accessibilityLabel={t('exp.addComment')} placeholder={t('exp.addComment')} multiline maxLength={500} />
+            <Button label={t('exp.postComment')} variant="secondary" disabled={!comment.trim()} onPress={postComment} style={styles.small} />
+          </>
+        )}
       </Screen>
     </>
   );
@@ -302,4 +453,7 @@ const styles = StyleSheet.create({
   shutter: { position: 'absolute', left: 16, right: 16, bottom: 48 },
   button: { marginTop: 32 },
   small: { marginTop: 10 },
+  comment: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6, marginHorizontal: 4 },
+  commentText: { flex: 1, fontSize: 15, lineHeight: 21 },
+  bold: { fontWeight: '600' },
 });

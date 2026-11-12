@@ -1,14 +1,15 @@
 import { Stack, router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text } from 'react-native';
 
 import { Button } from '@/components/Button';
+import { Chips } from '@/components/Chips';
 import { Field } from '@/components/Field';
 import { Group, Row, RowMeta, RowTitle, SectionLabel } from '@/components/Group';
 import { Screen } from '@/components/Screen';
 import { Loading, Problem, errorMessage } from '@/components/Status';
 import {
-  createGroup, currentUserId, joinGroup, listGroups, sendCode, signOut, supabase, verifyCode,
+  createGroup, currentUserId, groupPreview, joinGroup, listGroups, sendCode, signOut, supabase, verifyCode, type GroupPreview,
 } from '@/expenses/api';
 import type { GroupRow } from '@/expenses/types';
 import { useT } from '@/i18n/context';
@@ -28,6 +29,8 @@ export default function Expenses() {
   const [currency, setCurrency] = useState('USD');
   const [invite, setInvite] = useState('');
   const [myName, setMyName] = useState('');
+  const [fetched, setFetched] = useState<GroupPreview | null>(null);
+  const [picked, setPicked] = useState('new');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,6 +50,20 @@ export default function Expenses() {
       load();
     }, [load]),
   );
+
+  // A full invite code shows the group's name and any spots added for people who have not joined yet.
+  const fullCode = mode === 'join' && invite.trim().length === 8;
+  useEffect(() => {
+    if (!fullCode) return;
+    let live = true;
+    groupPreview(invite).then((p) => live && setFetched(p), () => live && setFetched(null));
+    return () => {
+      live = false;
+    };
+  }, [invite, fullCode]);
+  const preview = fullCode && fetched ? fetched : null;
+  const claim = preview?.placeholders.some((p) => p.user_id === picked) ? picked : 'new';
+  const setClaim = setPicked;
 
   const run = async (fn: () => Promise<void>) => {
     if (busy) return;
@@ -132,13 +149,17 @@ export default function Expenses() {
 
   const submitGroup = () =>
     run(async () => {
-      const g = mode === 'create' ? await createGroup(groupName, currency, myName) : await joinGroup(invite, myName);
+      const g =
+        mode === 'create'
+          ? await createGroup(groupName, currency, myName)
+          : await joinGroup(invite, myName, claim === 'new' ? null : claim);
       setMode('none');
       setGroupName('');
       setInvite('');
       router.push(`/expenses/${g.id}`);
     });
-  const formReady = myName.trim() && (mode === 'create' ? groupName.trim() && /^[A-Za-z]{3}$/.test(currency) : invite.trim().length >= 8);
+  const claiming = mode === 'join' && claim !== 'new';
+  const formReady = (myName.trim() || claiming) && (mode === 'create' ? groupName.trim() && /^[A-Za-z]{3}$/.test(currency) : invite.trim().length >= 8);
 
   return (
     <>
@@ -177,10 +198,29 @@ export default function Expenses() {
               <>
                 <SectionLabel>{t('exp.inviteCode')}</SectionLabel>
                 <Field value={invite} onChangeText={(v) => setInvite(v.toUpperCase())} accessibilityLabel={t('exp.inviteCode')} autoCapitalize="characters" maxLength={8} />
+                {preview && (
+                  <>
+                    <Text style={[styles.intro, styles.preview, { color: c.ink }]}>{t('exp.joining', { name: preview.name })}</Text>
+                    {preview.placeholders.length > 0 && (
+                      <>
+                        <SectionLabel>{t('exp.whoAreYou')}</SectionLabel>
+                        <Chips
+                          options={[
+                            ...preview.placeholders.map((p) => ({ value: p.user_id, label: p.display_name })),
+                            { value: 'new', label: t('exp.someoneNew') },
+                          ]}
+                          selected={[claim]}
+                          onToggle={setClaim}
+                          a11y={t('exp.whoAreYou')}
+                        />
+                      </>
+                    )}
+                  </>
+                )}
               </>
             )}
             <SectionLabel>{t('exp.yourName')}</SectionLabel>
-            <Field value={myName} onChangeText={setMyName} accessibilityLabel={t('exp.yourName')} />
+            <Field value={myName} onChangeText={setMyName} accessibilityLabel={t('exp.yourName')} placeholder={claiming ? t('exp.keepName') : undefined} />
             <Button label={t(mode === 'create' ? 'exp.create' : 'exp.join')} disabled={!formReady} busy={busy} onPress={submitGroup} style={styles.button} />
             <Button label={t('common.cancel')} variant="tertiary" onPress={() => setMode('none')} style={styles.small} />
           </>
@@ -206,4 +246,5 @@ const styles = StyleSheet.create({
   intro: { fontSize: 16, lineHeight: 22, marginHorizontal: 4, marginBottom: 8 },
   button: { marginTop: 32 },
   small: { marginTop: 10 },
+  preview: { marginTop: 10 },
 });
