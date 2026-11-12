@@ -9,7 +9,7 @@ import { Group, Row, RowMeta, RowTitle, SectionLabel } from '@/components/Group'
 import { Screen } from '@/components/Screen';
 import { Loading, Problem, errorMessage } from '@/components/Status';
 import {
-  createGroup, currentUserId, groupPreview, joinGroup, listGroups, sendCode, signOut, supabase, verifyCode, type GroupPreview,
+  createGroup, currentUserId, deleteAccount, groupPreview, joinGroup, listGroups, sendCode, signOut, supabase, verifyCode, type GroupPreview,
 } from '@/expenses/api';
 import type { GroupRow } from '@/expenses/types';
 import { useT } from '@/i18n/context';
@@ -76,6 +76,22 @@ export default function Expenses() {
       setBusy(false);
     }
   };
+
+  const confirmDeleteAccount = () =>
+    Alert.alert(t('exp.deleteAccountTitle'), t('exp.deleteAccountBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('exp.deleteAccount'),
+        style: 'destructive',
+        onPress: () => run(async () => {
+          await deleteAccount();
+          setGroups(null);
+          setCodeSent(false);
+          setCode('');
+          await load();
+        }),
+      },
+    ]);
 
   const header = <Stack.Screen options={{ title: t('exp.title'), headerLargeTitleStyle: { fontSize: 34, color: c.ink } }} />;
 
@@ -237,6 +253,7 @@ export default function Expenses() {
             await load();
           })}
         />
+        <Button label={t('exp.deleteAccount')} variant="tertiary" style={styles.small} onPress={confirmDeleteAccount} />
       </Screen>
     </>
   );
