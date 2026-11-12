@@ -33,14 +33,16 @@ npm run android        # expo run:android
 
 ## End-to-end tests (Maestro)
 
-`.maestro/` holds two flows: `move-in.yaml` (create an inspection, walk 2 rooms, finish, export the PDF) and `move-out.yaml` (runs the move-in flow, then starts a move-out, sets conditions, and exports the comparison). Both stop at the iOS share sheet, assert the PDF is in it, and dismiss it. Photo steps are skipped because the simulator has no camera.
+`.maestro/` holds three flows: `move-in.yaml` (create an inspection, walk 2 rooms, finish, export the PDF), `move-out.yaml` (runs the move-in flow, then starts a move-out, sets conditions, and exports the comparison), and `deposit-split.yaml` (runs the move-out flow, then splits the deposit between two people and exports the comparison). Each stops at the iOS share sheet, asserts the PDF is in it, and dismisses it. Photo steps are skipped because the simulator has no camera.
 
 Requirements: the [Maestro CLI](https://maestro.mobile.dev) and a Java 17 runtime (`brew install openjdk@17`, then `export JAVA_HOME=$(brew --prefix openjdk@17)`).
 
 ```bash
 npm run ios                                   # dev build on a booted simulator, keep Metro running
-maestro test .maestro/                        # both flows (subflows/ is not run on its own)
+maestro test .maestro/                        # all flows (subflows/ is not run on its own)
 maestro test .maestro/move-in.yaml            # one flow
 ```
 
-Each flow starts from a cleared app (`clearState`), so it skips onboarding and creates its own data. Run them locally before each release. They are not in CI: that needs a macOS runner plus a full native iOS build and simulator boot on every run (macOS minutes are billed at 10x Linux), which costs far more than the flows are worth at this stage. The share sheet steps use iOS labels, so Android needs its own dismiss step and has not been verified yet.
+Each flow starts from a cleared app (`clearState`), so it skips onboarding and creates its own data. The share sheet steps use iOS labels, so Android needs its own dismiss step and has not been verified yet.
+
+CI: `.github/workflows/e2e.yml` runs every flow on a macOS runner against a Release simulator build (JS bundle embedded, no Metro). It is separate from `ci.yml` because macOS minutes are billed at 10x Linux. It runs nightly, on demand from the Actions tab (or `gh workflow run e2e.yml --ref <branch>`), and on a pull request once it has the `e2e` label (again on every push while the label stays). When a flow fails, the job uploads the Maestro debug output and screenshots as the `maestro-debug` artifact.

@@ -1,0 +1,73 @@
+name: E2E
+
+# Runs the Maestro flows in .maestro/ against a Release simulator build. Kept out of ci.yml because a macOS
+# runner plus a native iOS build is slow and billed at 10x Linux minutes.
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+  pull_request:
+    types: [labeled, synchronize]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  maestro:
+    # On PRs, run only when the e2e label is added or new commits land on a PR that has it.
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'e2e') ||
+      (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'e2e'))
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: '180000'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci
+      - name: Install Maestro CLI
+        run: |
+          curl -fsSL https://get.maestro.mobile.dev | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      # pod install runs after npm ci on purpose: npm ci removes expo-sqlite's bundled sqlite3.c/h and pod install restores them.
+      - run: npx expo prebuild --platform ios --no-install
+      - run: pod install
+        working-directory: ios
+      - name: Build Release for the simulator
+        working-directory: ios
+        run: |
+          xcodebuild -workspace Unscratched.xcworkspace -scheme Unscratched -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO SWIFT_ENABLE_EXPLICIT_MODULES=NO build > xcodebuild.log 2>&1 \
+            || { grep -E 'error:' xcodebuild.log | head -n 50; tail -n 100 xcodebuild.log; exit 1; }
+      - name: Boot a simulator and install the app
+        run: |
+          udid=$(xcrun simctl list devices available -j \
+            | jq -r '[.devices | to_entries[] | select(.key | test("iOS")) | .value[] | select(.name | startswith("iPhone"))][0].udid')
+          [ -n "$udid" ] && [ "$udid" != null ] || { xcrun simctl list devices available; exit 1; }
+          echo "SIM_UDID=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl install "$udid" ios/build/Build/Products/Release-iphonesimulator/Unscratched.app
+      - run: maestro --device "$SIM_UDID" test .maestro/ --debug-output maestro-debug
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-debug
+          path: maestro-debug
+          if-no-files-found: ignore
