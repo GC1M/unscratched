@@ -41,6 +41,10 @@ function Navigator() {
           <Stack.Screen name="inspection/[id]/room/[roomId]" />
           <Stack.Screen name="item/[id]" />
           <Stack.Screen name="camera/[itemId]" />
+          <Stack.Screen name="expenses/index" />
+          <Stack.Screen name="expenses/[groupId]/index" />
+          <Stack.Screen name="expenses/[groupId]/expense" />
+          <Stack.Screen name="expenses/[groupId]/stats" />
         </Stack.Protected>
         <Stack.Protected guard={!onboarded}>
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />
