@@ -171,3 +171,70 @@ test('buildDisputeLetterHtml.ts does not import expo or react-native', () => {
   const src = readFileSync(join(__dirname, 'buildDisputeLetterHtml.ts'), 'utf8');
   expect(src).not.toMatch(/from ['"](expo|react-native)/);
 });
+
+const withDeposit = (split: object): Comparison => {
+  const c = fixture();
+  c.rooms[0].items[0].moveOut!.item.id = 10; // Oven, worsened
+  c.rooms[1].items[0].moveOut!.item.id = 11; // Mirror, worsened
+  c.moveOut = { ...c.moveOut, deposit_split: JSON.stringify(split) };
+  return c;
+};
+const roommates = {
+  depositCents: 200000,
+  tenants: [
+    { id: 1, name: 'Sam Renter', percent: null },
+    { id: 2, name: 'Alex Mate', percent: null },
+  ],
+  deductions: { 10: { cents: 15000, to: 2 }, 11: { cents: 5001, to: null } },
+};
+
+test("with a deposit split: snapshot with the deposit, itemized deductions, and each roommate's refund", () => {
+  const html = buildDisputeLetterHtml(withDeposit(roommates), { formatDate });
+  expect(html).toMatchSnapshot();
+  expect(html).toContain('my security deposit of 2,000.00 be returned');
+  expect(html).not.toContain('[Deposit amount]');
+  expect(html).toContain('The deductions claimed against the deposit total 200.01:');
+  expect(html).toContain('<tr><td>Oven</td><td>150.00</td></tr>');
+  expect(html).toContain('<tr><td>Mirror</td><td>50.01</td></tr>');
+  expect(html).toContain('we expect a total refund of 1,799.99');
+  // Same settlement as the comparison report: Alex carries the oven, the shared mirror's odd cent goes by largest remainder.
+  expect(html).toContain('<tr><td>Sam Renter</td><td>974.99</td></tr>');
+  expect(html).toContain('<tr><td>Alex Mate</td><td>825.00</td></tr>');
+  expect(buildDisputeLetterHtml(withDeposit(roommates), { formatDate, lang: 'es' })).toContain('esperamos un reembolso total de 1799,99');
+});
+
+test('with a deposit and no roommates: one expected refund, no per-person table, no deduction table without deductions', () => {
+  const html = buildDisputeLetterHtml(withDeposit({ depositCents: 150000, tenants: [], deductions: {} }), { formatDate });
+  expect(html).toContain('my security deposit of 1,500.00 be returned');
+  expect(html).toContain('<p>After any deductions, I expect a refund of 1,500.00.</p>');
+  expect(html).not.toContain('deductions claimed');
+  expect(html).not.toContain('Expected refund');
+});
+
+test('without a deposit, or with an unreadable or invalid split, the letter is unchanged', () => {
+  const base = buildDisputeLetterHtml(fixture(), { formatDate });
+  const noDeposit = { ...roommates, depositCents: null };
+  const badPercent = { ...roommates, tenants: [{ id: 1, name: 'A', percent: 30 }] };
+  for (const split of [noDeposit, badPercent]) expect(buildDisputeLetterHtml(withDeposit(split), { formatDate })).toBe(base);
+  const c = fixture();
+  c.moveOut = { ...c.moveOut, deposit_split: 'not json' };
+  expect(buildDisputeLetterHtml(c, { formatDate })).toBe(base);
+});
+
+test('escapes roommate and item names in the deposit section', () => {
+  const c = withDeposit({
+    ...roommates,
+    tenants: [
+      { id: 1, name: '<b>Sam</b>', percent: null },
+      { id: 2, name: '<script>x()</script>', percent: null },
+    ],
+  });
+  c.rooms[0].items[0].name = '<img src=x onerror=alert(1)>';
+  const html = buildDisputeLetterHtml(c, { formatDate });
+  expect(html).not.toContain('<script>');
+  expect(html).not.toContain('<b>');
+  expect(html).not.toContain('<img');
+  expect(html).toContain('<tr><td>&lt;b&gt;Sam&lt;/b&gt;</td>');
+  expect(html).toContain('<tr><td>&lt;script&gt;x()&lt;/script&gt;</td>');
+  expect(html).toContain('<tr><td>&lt;img src=x onerror=alert(1)&gt;</td><td>150.00</td></tr>');
+});

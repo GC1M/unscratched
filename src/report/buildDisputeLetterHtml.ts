@@ -1,6 +1,8 @@
-import { translator, type Lang } from '@/i18n';
+import { translator, type Lang, type T } from '@/i18n';
 import { depositDueDate, depositSummary, lookupDepositDeadline } from '@/legal/depositDeadlines';
+import { formatMoney, parseDepositSplit, settleDeposit } from '@/lib/depositSplit';
 
+import { worsenedDeductions } from './buildComparisonHtml';
 import { conditionLabel, pdfLocale } from './buildReportHtml';
 import type { Comparison } from './comparison';
 import { escapeHtml } from './escapeHtml';
@@ -20,6 +22,41 @@ const defaultFormatDay = (ms: number, lang: Lang) => new Date(ms).toLocaleDateSt
 /** Something the app does not know: shown in brackets and highlighted for the tenant to fill in. */
 const blank = (label: string) => `<span class="placeholder">[${label}]</span>`;
 const orBlank = (text: string | null | undefined, label: string) => (text?.trim() ? escapeHtml(text.trim()) : blank(label));
+
+/**
+ * The recorded deposit, its deductions, and the expected refund (per person when several are on the lease), using the
+ * same math as the comparison report. null without a deposit or when the stored split is no longer valid.
+ */
+function depositRefund(t: T, c: Comparison, lang: Lang): { amount: string; html: string } | null {
+  const split = parseDepositSplit(c.moveOut.deposit_split);
+  if (split.depositCents == null) return null;
+  const lines = worsenedDeductions(c, split);
+  // No one listed: settle against one placeholder person to get the whole refund.
+  const tenants = split.tenants.length ? split.tenants : [{ id: 0, name: '', percent: null }];
+  let refunds;
+  try {
+    refunds = settleDeposit({ ...split, tenants }, lines);
+  } catch {
+    return null;
+  }
+  if (!refunds) return null;
+  const money = (cents: number) => formatMoney(cents, pdfLocale(lang));
+  const total = refunds.reduce((a, r) => a + r.refundCents, 0);
+  const deductions = lines.length
+    ? `\n<p>${t('letter.deductions', { total: money(lines.reduce((a, l) => a + l.cents, 0)) })}</p>
+<table><thead><tr><th>${t('common.item')}</th><th>${t('split.deduction')}</th></tr></thead><tbody>
+${lines.map((l) => `<tr><td>${escapeHtml(l.name)}</td><td>${money(l.cents)}</td></tr>`).join('\n')}
+</tbody></table>`
+    : '';
+  const refund =
+    split.tenants.length > 1
+      ? `<p>${t('letter.refundSplit', { amount: money(total) })}</p>
+<table><thead><tr><th>${t('split.tenant')}</th><th>${t('split.refund')}</th></tr></thead><tbody>
+${refunds.map((r) => `<tr><td>${escapeHtml(r.name)}</td><td>${money(r.refundCents)}</td></tr>`).join('\n')}
+</tbody></table>`
+      : `<p>${t('letter.refund', { amount: money(total) })}</p>`;
+  return { amount: money(split.depositCents), html: `${deductions}\n${refund}` };
+}
 
 /** Pure: comparison in, a print-ready deposit-return letter out. Every user string goes through escapeHtml. */
 export function buildDisputeLetterHtml(c: Comparison, opts?: { formatDate?: (ms: number) => string; lang?: Lang }): string {
@@ -52,6 +89,8 @@ ${flagged
 </tbody></table>`
     : `<p>${t('letter.noneFlagged')}</p>`;
 
+  const refund = depositRefund(t, c, lang);
+
   const evidence = c.moveOutCode
     ? t('letter.evidenceCode', { code: escapeHtml(c.moveOutCode), link: `unscratched.app/v/${escapeHtml(c.moveOutCode)}` })
     : t('letter.evidence');
@@ -69,9 +108,9 @@ ${flagged
 <p>${landlord}<br>${blank(t('letter.landlordAddress'))}</p>
 <p><strong>${t('letter.re', { property })}</strong></p>
 <p>${t('letter.dear', { name: landlord })}</p>
-<p>${t('letter.intro', { property, moveIn: day(moveIn.finished_at, t('letter.moveInDate')), moveOut: moveOutDay, amount: blank(t('letter.amount')) })}</p>${depositNote}
+<p>${t('letter.intro', { property, moveIn: day(moveIn.finished_at, t('letter.moveInDate')), moveOut: moveOutDay, amount: refund?.amount ?? blank(t('letter.amount')) })}</p>${depositNote}
 <p>${t(notWorse === 1 ? 'letter.documented.one' : 'letter.documented.other', { n: notWorse })}</p>
-${flaggedSection}
+${flaggedSection}${refund?.html ?? ''}
 <p>${evidence}</p>
 <p>${t('letter.sendTo', { address: blank(t('letter.forwarding')) })}</p>
 <p>${t('letter.sincerely')}<br>${tenant}</p>
