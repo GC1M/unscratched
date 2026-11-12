@@ -1,7 +1,7 @@
 import type { Photo } from '@/db/types';
 import { translator, type Lang, type T } from '@/i18n';
 import { depositDueDate, depositSummary, lookupDepositDeadline } from '@/legal/depositDeadlines';
-import { formatMoney, parseDepositSplit, settleDeposit } from '@/lib/depositSplit';
+import { type DepositSplit, formatMoney, parseDepositSplit, settleDeposit } from '@/lib/depositSplit';
 
 import { conditionLabel, defaultFormatDate, pdfLocale, receiptLine, verificationText } from './buildReportHtml';
 import type { Comparison, ComparisonItem } from './comparison';
@@ -47,15 +47,19 @@ function change(t: T, i: ComparisonItem): string {
   return t(before === after ? 'cmp.same' : 'cmp.better');
 }
 
-/** Per-tenant deposit summary from the move-out's split, counting deductions on worsened items only. '' without a deposit. */
-function depositSplitSection(t: T, c: Comparison, locale: string): string {
-  const split = parseDepositSplit(c.moveOut.deposit_split);
-  const lines = c.rooms.flatMap((r) =>
+/** The split's deductions on worsened items only, in comparison order, with each item's name. Shared with the dispute letter. */
+export const worsenedDeductions = (c: Comparison, split: DepositSplit) =>
+  c.rooms.flatMap((r) =>
     r.items.flatMap((i) => {
       const d = i.worsened && i.moveOut ? split.deductions[i.moveOut.item.id] : undefined;
       return d && d.cents > 0 ? [{ name: i.name, ...d }] : [];
     }),
   );
+
+/** Per-tenant deposit summary from the move-out's split, counting deductions on worsened items only. '' without a deposit. */
+function depositSplitSection(t: T, c: Comparison, locale: string): string {
+  const split = parseDepositSplit(c.moveOut.deposit_split);
+  const lines = worsenedDeductions(c, split);
   let refunds;
   try {
     refunds = settleDeposit(split, lines);
