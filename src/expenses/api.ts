@@ -121,8 +121,15 @@ export async function deleteExpense(id: string): Promise<void> {
   ok(await need().from('expenses').delete().eq('id', id));
 }
 
+/** Today as YYYY-MM-DD in the phone's time zone (the server's current_date is UTC). */
+export const localToday = () => new Date().toLocaleDateString('sv-SE');
+
 export async function recordSettlement(groupId: string, fromId: string, toId: string, amountCents: number): Promise<void> {
-  ok(await need().from('settlements').insert({ group_id: groupId, from_id: fromId, to_id: toId, amount_cents: amountCents }));
+  ok(
+    await need()
+      .from('settlements')
+      .insert({ group_id: groupId, from_id: fromId, to_id: toId, amount_cents: amountCents, settled_on: localToday() }),
+  );
 }
 
 export async function deleteSettlement(id: string): Promise<void> {

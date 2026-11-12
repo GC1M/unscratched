@@ -10,7 +10,7 @@ import ExpenseGroup from '../app/expenses/[groupId]/index';
 jest.mock('@/expenses/api', () => ({
   loadGroup: jest.fn(), currentUserId: jest.fn(), recordSettlement: jest.fn(async () => {}), deleteSettlement: jest.fn(),
   deleteRecurring: jest.fn(), saveExpense: jest.fn(async () => ({})), saveRecurring: jest.fn(async () => {}), deleteExpense: jest.fn(),
-  receiptUrl: jest.fn(), uploadReceipt: jest.fn(),
+  receiptUrl: jest.fn(), uploadReceipt: jest.fn(), localToday: () => '2026-11-12',
 }));
 jest.mock('@/db/client', () => ({ getDb: jest.fn(async () => ({})) }));
 jest.mock('expo-camera', () => ({ CameraView: () => null, useCameraPermissions: () => [{ granted: true }, jest.fn()] }));

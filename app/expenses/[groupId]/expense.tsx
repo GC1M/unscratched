@@ -9,7 +9,7 @@ import { Field } from '@/components/Field';
 import { SectionLabel } from '@/components/Group';
 import { Screen } from '@/components/Screen';
 import { Loading, Problem, errorMessage } from '@/components/Status';
-import { currentUserId, deleteExpense, loadGroup, receiptUrl, saveExpense, saveRecurring, uploadReceipt } from '@/expenses/api';
+import { currentUserId, deleteExpense, loadGroup, localToday, receiptUrl, saveExpense, saveRecurring, uploadReceipt } from '@/expenses/api';
 import { formatCents, parseCents, splitAmount, splitItemized } from '@/expenses/split';
 import { CATEGORIES, type Category, type Every, type GroupData, type SplitModeDb } from '@/expenses/types';
 import { useT } from '@/i18n/context';
@@ -17,7 +17,6 @@ import { useTheme } from '@/theme';
 
 type Item = { name: string; amount: string; members: string[] };
 const MODES: SplitModeDb[] = ['equal', 'exact', 'percent', 'shares', 'itemized'];
-const today = () => new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD in local time
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Add or edit an expense: amount, payer, category, date, any split mode, receipt photo, and repeat. */
@@ -30,7 +29,7 @@ export default function ExpenseEditor() {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<Category>('general');
-  const [spentOn, setSpentOn] = useState(today());
+  const [spentOn, setSpentOn] = useState(localToday());
   const [payer, setPayer] = useState('');
   const [mode, setMode] = useState<SplitModeDb>('equal');
   const [included, setIncluded] = useState<string[]>([]);
