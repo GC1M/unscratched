@@ -150,6 +150,11 @@ export async function setLandlordContact(
   await db.runAsync('UPDATE inspection SET landlord_email = ?, portal_url = ? WHERE id = ?', contact.landlord_email, contact.portal_url, id);
 }
 
+/** Saves the move-out deposit split (JSON). Allowed on a finished inspection: it is settlement data, not evidence. */
+export async function setDepositSplit(db: SQLiteDatabase, id: number, json: string | null): Promise<void> {
+  await db.runAsync('UPDATE inspection SET deposit_split = ? WHERE id = ?', json, id);
+}
+
 /** Records that the report was sent to the landlord now, by the given channel. Allowed on a finished inspection. */
 export async function recordSent(db: SQLiteDatabase, id: number, channel: SentChannel): Promise<void> {
   await db.runAsync('UPDATE inspection SET sent_at = ?, sent_channel = ? WHERE id = ?', Date.now(), channel, id);

@@ -113,6 +113,7 @@ describe('repo', () => {
       portal_url: null,
       sent_at: null,
       sent_channel: null,
+      deposit_split: null,
     });
     expect((await repo.listInspections(db)).map((i) => i.id)).toEqual([b, a]);
     expect(await repo.getInspection(db, 999)).toBeNull();
@@ -334,6 +335,8 @@ describe('repo', () => {
     });
     await repo.setLandlordContact(db, id, { landlord_email: null, portal_url: null });
     expect(await repo.getInspection(db, id)).toMatchObject({ landlord_email: null, portal_url: null, sent_channel: 'portal' });
+    await repo.setDepositSplit(db, id, '{"depositCents":100}');
+    expect(await repo.getInspection(db, id)).toMatchObject({ deposit_split: '{"depositCents":100}' });
     const [room] = await repo.listRooms(db, id);
     await expect(repo.renameRoom(db, room.id, 'x')).rejects.toBeInstanceOf(repo.InspectionLockedError);
   });

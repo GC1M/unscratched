@@ -49,6 +49,7 @@ const fixture = (): Comparison => ({
     portal_url: null,
     sent_at: null,
     sent_channel: null,
+    deposit_split: null,
   },
   moveOut: {
     id: 2,
@@ -66,6 +67,7 @@ const fixture = (): Comparison => ({
     portal_url: null,
     sent_at: null,
     sent_channel: null,
+    deposit_split: null,
   },
   rooms: [
     {
@@ -192,4 +194,40 @@ test('buildComparisonHtml.ts and comparison.ts do not import expo or react-nativ
     expect(src).not.toMatch(/from ['"](expo|react-native)/);
     expect(src).not.toMatch(/require\(['"](expo|react-native)/);
   }
+});
+
+test('deposit split: per-tenant summary counts deductions on worsened items only, and escapes names', () => {
+  const c = fixture();
+  c.rooms[0].items[0].moveOut!.item.id = 10; // Oven, worse
+  c.rooms[0].items[1].moveOut!.item.id = 11; // Sink, better: its deduction is ignored
+  c.moveOut.deposit_split = JSON.stringify({
+    depositCents: 150000,
+    tenants: [{ id: 1, name: 'Ana <b>', percent: null }, { id: 2, name: 'Ben', percent: null }],
+    deductions: { 10: { cents: 20000, to: 2 }, 11: { cents: 999, to: null } },
+  });
+  const html = buildComparisonHtml(c, { formatDate });
+  expect(html).toContain('<h2>Deposit split</h2>');
+  expect(html).toContain('<p>Deposit amount: 1,500.00</p>');
+  expect(html).toContain('<tr><td>Oven</td><td>200.00</td><td>Ben</td></tr>');
+  expect(html).not.toContain('<td>Sink</td><td>9.99</td>');
+  expect(html).toContain('<tr><td>Ana &lt;b&gt;</td><td>750.00</td><td>0.00</td><td>750.00</td></tr>');
+  expect(html).toContain('<tr><td>Ben</td><td>750.00</td><td>200.00</td><td>550.00</td></tr>');
+  expect(html).not.toContain('Ana <b>');
+});
+
+test('deposit split: omitted without a deposit amount; Spanish labels and number format', () => {
+  const c = fixture();
+  c.moveOut.deposit_split = JSON.stringify({ depositCents: null, tenants: [{ id: 1, name: 'Ana', percent: null }], deductions: {} });
+  expect(buildComparisonHtml(c, { formatDate })).not.toContain('Deposit split');
+  c.moveOut.deposit_split = JSON.stringify({ depositCents: 123456, tenants: [{ id: 1, name: 'Ana', percent: null }], deductions: {} });
+  const es = buildComparisonHtml(c, { formatDate, lang: 'es' });
+  expect(es).toContain('<h2>Reparto del depósito</h2>');
+  expect(es).toContain('Reembolso esperado');
+  expect(es).toMatch(/1\.?234,56/);
+});
+
+test('deposit split: an invalid stored split drops the summary instead of failing the PDF', () => {
+  const c = fixture();
+  c.moveOut.deposit_split = JSON.stringify({ depositCents: 100, tenants: [{ id: 1, name: 'Ana', percent: 50 }], deductions: {} });
+  expect(buildComparisonHtml(c, { formatDate })).not.toContain('Deposit split');
 });

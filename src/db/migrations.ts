@@ -67,6 +67,8 @@ export const migrations: string[] = [
   ALTER TABLE inspection ADD COLUMN sent_at INTEGER;
   ALTER TABLE inspection ADD COLUMN sent_channel TEXT CHECK (sent_channel IN ('email', 'portal', 'share'));
   `,
+  // Move-out deposit split between tenants (JSON, see src/lib/depositSplit.ts). Settlement data, editable after finish.
+  'ALTER TABLE inspection ADD COLUMN deposit_split TEXT;',
 ];
 
 export async function migrate(db: SQLiteDatabase): Promise<void> {

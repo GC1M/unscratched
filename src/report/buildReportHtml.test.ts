@@ -24,6 +24,7 @@ const inspection: Inspection = {
   portal_url: null,
   sent_at: Date.UTC(2026, 0, 4, 9),
   sent_channel: 'email',
+  deposit_split: null,
 };
 
 const item = (id: number, room_id: number, name: string, condition: Item['condition'], note: string | null = null): Item => ({

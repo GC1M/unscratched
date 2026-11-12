@@ -327,7 +327,7 @@ test('a finished inspection shows the sent record and still saves the landlord c
   const sentAt = new Date(2026, 0, 22).getTime();
   r.getInspection.mockResolvedValue({
     id: 1, address: '1 Main St', kind: 'move_in', started_at: 0, finished_at: 1,
-    landlord_email: 'lee@example.com', portal_url: null, sent_at: sentAt, sent_channel: 'email',
+    landlord_email: 'lee@example.com', portal_url: null, sent_at: sentAt, sent_channel: 'email', deposit_split: null,
   } as never);
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   await render(<RoomList />);

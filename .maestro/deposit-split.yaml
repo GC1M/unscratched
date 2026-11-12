@@ -1,0 +1,30 @@
+# Flow 3: on a finished move-out, split the deposit between two people, charge one deduction to one of them,
+# and export the comparison with the per-person summary.
+appId: app.unscratched
+name: Deposit split
+---
+- runFlow: move-out.yaml
+- tapOn: "Split the deposit, .*"
+# The section label reads "Deposit amount" too; tap the field by its placeholder.
+- tapOn: "0.00"
+- inputText: "1500"
+- tapOn: "Add person"
+- tapOn: "Person 1"
+- inputText: "Ana"
+- tapOn: "Add person"
+- tapOn: "Person 2"
+- inputText: "Ben"
+- pressKey: Enter
+- scrollUntilVisible:
+    element: "Deduction for Refrigerator"
+- tapOn: "Deduction for Refrigerator"
+- inputText: "200"
+# The name field also reads "Ben"; the chip is the second match.
+- tapOn:
+    text: "Ben"
+    index: 1
+- scroll
+- tapOn: "Save"
+- assertVisible: "Split the deposit, 1,500.00, 2 people"
+- tapOn: "Export comparison"
+- runFlow: { file: subflows/dismiss-share-sheet.yaml, env: { FILE: Unscratched-comparison- } }

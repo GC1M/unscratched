@@ -33,6 +33,8 @@ export function Screen({
         contentInsetAdjustmentBehavior="automatic"
         automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="handled"
+        // A decimal pad has no return key, so dragging the list is the way to put it away.
+        keyboardDismissMode="on-drag"
         contentContainerStyle={[
           styles.content,
           !!floating && floatingHeight > 0 && { paddingBottom: Math.max(120, floatingHeight + FLOATING_BOTTOM + FLOATING_GAP) },

@@ -41,6 +41,7 @@ const inspection = (over: Partial<Inspection>): Inspection => ({
   portal_url: null,
   sent_at: null,
   sent_channel: null,
+  deposit_split: null,
   ...over,
 });
 
