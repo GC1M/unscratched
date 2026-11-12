@@ -11,7 +11,7 @@ Rules for all copy: no promise of getting a deposit back, no claim that the app 
 | Name | 30 | Unscratched: Move-In Checklist | 30 |
 | Subtitle | 30 | Rental inspection photos & PDF | 30 |
 | Keywords | 100 | move in,inspection,security deposit,tenant,renter,apartment,landlord,move out,condition,report | 94 |
-| Promotional text | 170 | Walk your rental room by room, photograph every scratch, and export a dated PDF report. Free, no account, and your photos stay on your phone. | 141 |
+| Promotional text | 170 | Walk your rental room by room, photograph every scratch, and export a dated PDF report. Free, no account needed, and your photos stay on your phone. | 148 |
 
 Keyword notes: Apple already indexes words in the name and subtitle, so "checklist", "rental", "photos", and "PDF" are left out of the keyword field. Use commas, no spaces after them.
 
@@ -33,6 +33,15 @@ AT MOVE-OUT
 - Start a move-out inspection linked to your move-in.
 - Export a side-by-side comparison that shows what changed.
 - Set your move-out date to get reminders on your phone before and after you leave.
+- Split the deposit and any deductions between roommates, and see each person's expected refund in the comparison.
+- Create a deposit-return letter prefilled from the comparison.
+
+FOR ROOMMATES
+- Every roommate can sign the report with their own name and signature.
+- Optional shared expenses: split rent, bills, and groceries with your roommates, see who owes whom, and settle up. This feature uses a free account (email sign-in). Inspections never need one.
+
+IN ENGLISH AND SPANISH
+- The app and its PDF reports are available in English and Spanish, with room checklists for US, UK, and Canadian rentals.
 
 PHOTOS YOU CAN CHECK LATER
 - Every photo is taken inside the app and gets a SHA-256 fingerprint, printed in the report.
@@ -40,8 +49,8 @@ PHOTOS YOU CAN CHECK LATER
 - Your report includes a verification code. Anyone can enter it at unscratched.app to see when the photos were recorded.
 
 PRIVATE BY DESIGN
-- No account, no sign-in, no ads, no tracking.
-- Photos, addresses, names, and notes stay on your phone.
+- No account needed for inspections. No ads, no tracking.
+- Inspection photos, addresses, names, and notes stay on your phone.
 - Free.
 
 Unscratched helps you document a rental's condition. It is not legal advice, and it does not guarantee any outcome in a deposit dispute. For legal questions, check your local tenant laws or talk to a lawyer or a tenant rights organization.
@@ -86,7 +95,9 @@ What actually leaves the device (checked against the code on main):
 - The verify page (`web/verify/`) sends only the typed hash or code to the `lookup_receipt` RPC and has no analytics.
 - `src/lib/suggestNote.ts` (opt-in, off by default): only when the user turns on "Suggest notes from photos" in Settings and then taps "Suggest note" under a photo, it posts `{ install_id, image }` to the `suggest-note` edge function. `image` is a 768px JPEG copy of that one photo; `install_id` is a random UUID made once and kept in the local `setting` table. With the setting off the item screen renders no button and no request is made.
 - `supabase/functions/suggest-note/` forwards the image to the Anthropic Messages API (Claude Haiku) and returns `{ caption, severity }`. It never logs or stores the image. `supabase/migrations/20261111000100_suggest_note_usage.sql` stores only `install_id`, `day`, and `count` for the 30-a-day limit. Anthropic processes the image to answer the request and, under its API terms, may retain inputs for a limited period for trust and safety; it does not train on API data by default.
-- Addresses, names, notes, and reminders never leave the device. Photos leave it only through the opt-in suggestion above. Reminders are local notifications, with no push token.
+- `src/receipts/acknowledgements.ts` and `supabase/migrations/20261111000000_acknowledgements.sql`: a landlord opening the acknowledgement link (a web page, not the app) stores `manifest_sha256`, the typed `landlord_name`, and the time. The app only reads acknowledgements for its own manifest hash. Nothing about the tenant is sent.
+- Shared expenses (`src/expenses/api.ts`, `supabase/migrations/20261112000000_expenses.sql`), optional, only after email sign-in: the user's email (Supabase Auth), a Supabase user id, per-group display names, group name, currency and invite code, expenses (description, amount, category, date, payer, shares, itemized lines), settlements, recurring expenses, and receipt photos in the private `expense-receipts` storage bucket. All rows are tied to the user id, so they are linked to the user. RLS limits reads to group members.
+- Addresses, names, notes, signatures, the deposit split, and reminders of inspections never leave the device. Photos leave it only through the opt-in suggestion above. Reminders are local notifications, with no push token.
 - No analytics, ads, crash SDK, or third-party tracking SDKs are in the app.
 
 ### Apple App Privacy (nutrition label)
@@ -112,9 +123,26 @@ With note suggestions in the build (they are, from #82), add two more rows, both
 
 Resulting label: "Data Not Linked to You: User Content, Identifiers".
 
+With shared expenses in the build (they are, from #103), add these rows. All are App Functionality, linked to the user (they are stored under their account), and not used for tracking:
+
+| Data type | Why |
+| --- | --- |
+| Contact Info > Email Address | Sign-in with an emailed code. |
+| Contact Info > Name | The display name shown to other group members. |
+| Financial Info > Other Financial Info | Expense amounts, shares, and payments between roommates. No card or bank details. |
+| User Content > Photos or Videos | Receipt photos attached to expenses. |
+| User Content > Other User Content | Expense descriptions, categories, and group names. |
+| Identifiers > User ID | The Supabase account id. |
+
+Resulting label: "Data Linked to You: Contact Info, Financial Info, User Content, Identifiers" and "Data Not Linked to You: User Content, Identifiers". The inspection fingerprints and note suggestions stay not linked: they never carry the account id.
+
+Landlord acknowledgements are not declared: the landlord's name is entered on a web page by the landlord, not collected from the app's user, and the app only reads it back.
+
+**Launch blocker:** App Store Review Guideline 5.1.1(v) requires an app that lets people create an account to also let them start account deletion inside the app. The app has no account deletion yet, so add it before submitting a build with shared expenses. Google Play has the same requirement, plus a web link for deletion requests.
+
 Why not "Data Not Collected": Apple counts data as collected when it is transmitted off the device and kept longer than needed to answer the request in real time. The fingerprints are stored on our server permanently so receipts stay checkable, so they are collected. They are derived from the user's photos, so "Other User Content" is the closest honest category. Claiming "Data Not Collected" now would be inaccurate and is a review risk.
 
-Why not linked: the stored row has no account, device id, or IP, and the app has no sign-in. Nothing ties a fingerprint to a person or to the user's other fingerprints.
+Why the fingerprints are not linked: the stored row has no account, device id, or IP, and receipts are requested without the shared-expenses session. Nothing ties a fingerprint to a person or to the user's other fingerprints.
 
 Why the IP is not declared: Apple's guidance excludes data that is not stored beyond what is needed to service the request. The IP only appears in the hosting provider's short-lived operational logs and is never stored in our database or used. If the owner raises the Supabase log retention or starts using those logs, revisit this and add Identifiers or Usage Data as needed.
 
@@ -124,7 +152,7 @@ Why the IP is not declared: Apple's guidance excludes data that is not stored be
 | --- | --- |
 | Does your app collect or share any of the required user data types? | Yes |
 | Is all user data collected by your app encrypted in transit? | Yes (HTTPS to Supabase) |
-| Do you provide a way for users to request that their data is deleted? | No (data is not linked to any user, so there is no account or record to delete; see the privacy policy) |
+| Do you provide a way for users to request that their data is deleted? | Yes, once account deletion ships (see the launch blocker above). Until then, the privacy policy offers deletion by email. Inspection data is not linked to any user, so only shared-expenses accounts can be deleted |
 | Data type collected | App activity > Other user-generated content (photo fingerprints) |
 | Collected or shared? | Collected. Not shared (Supabase is a service provider processing on our behalf, which Google does not count as sharing) |
 | Processed ephemerally? | No (stored permanently) |
@@ -138,7 +166,18 @@ Note suggestions add two more data types:
 | Photos and videos > Photos | Collected. Not shared (Supabase and Anthropic process it on our behalf as service providers) | No (conservative: Anthropic may retain API inputs for a limited period) | Optional (off by default; sent only when the user taps Suggest note) | App functionality |
 | Device or other IDs | Collected. Not shared | No (kept with daily counts) | Optional | App functionality (rate limiting) |
 
-Not declared: Location, Personal info, App info and performance, Financial info.
+Shared expenses add these types. All are collected, not shared, not processed ephemerally, optional (only after sign-in), and used for app functionality and account management:
+
+| Data type collected | What |
+| --- | --- |
+| Personal info > Email address | Sign-in |
+| Personal info > Name | Display name in a group |
+| Personal info > User IDs | Supabase account id |
+| Financial info > Other financial info | Expense amounts, shares, payments |
+| Photos and videos > Photos | Receipt photos |
+| App activity > Other user-generated content | Expense descriptions, categories, group names |
+
+Not declared: Location, App info and performance, Messages, Contacts.
 
 Why not "No data collected": the same reason as Apple. Google counts data transmitted off the device and stored as collected. The fingerprints are user-generated derived data, so they are declared.
 
