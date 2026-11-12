@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Linking, StyleSheet, Text } from 'react-native';
+import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { Field } from '@/components/Field';
@@ -14,6 +14,7 @@ import { useT } from '@/i18n/context';
 import { validatePortalUrl } from '@/lib/portalUrl';
 import { exportReport, sendReport } from '@/report/export';
 import { exportPhotosZip } from '@/report/exportPhotosZip';
+import type { Roommate } from '@/report/types';
 import { serifItalic, useTheme } from '@/theme';
 
 // The typed names and drawn signature are passed to the report only. The inspection is finished (locked); the only
@@ -26,6 +27,8 @@ export default function ExportReport() {
   const [tenant, setTenant] = useState('');
   const [landlord, setLandlord] = useState('');
   const [signature, setSignature] = useState<string | null>(null);
+  // key keeps each roommate's signature pad (which holds its own strokes) attached to the right row on removal.
+  const [roommates, setRoommates] = useState<(Roommate & { key: number })[]>([]);
   const [drawing, setDrawing] = useState(false);
   const [portal, setPortal] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -49,7 +52,17 @@ export default function ExportReport() {
   }, [inspectionId, t]);
 
   const disabled = busy || date == null || !tenant.trim();
-  const ack = (at: number) => ({ tenantName: tenant.trim(), landlordName: landlord.trim() || null, date: at, tenantSignature: signature });
+  const ack = (at: number) => ({
+    tenantName: tenant.trim(),
+    landlordName: landlord.trim() || null,
+    date: at,
+    tenantSignature: signature,
+    roommates: roommates.map(({ name, signature }) => ({ name, signature })),
+  });
+  const editRoommate = (key: number, patch: Partial<Roommate>) =>
+    setRoommates((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  const addRoommate = () =>
+    setRoommates((rs) => [...rs, { key: (rs[rs.length - 1]?.key ?? 0) + 1, name: '', signature: null }]);
 
   const submit = async () => {
     if (disabled || date == null) return;
@@ -140,6 +153,25 @@ export default function ExportReport() {
         <Field signature value={tenant} onChangeText={setTenant} accessibilityLabel={t('export.tenantName')} placeholder={t('export.required')} />
         <SectionLabel>{t('export.signature')}</SectionLabel>
         <SignaturePad onDone={setSignature} onDrawing={setDrawing} />
+        {roommates.map((r, i) => {
+          const n = i + 1;
+          return (
+            <View key={r.key}>
+              <SectionLabel>{t('export.roommateName', { n })}</SectionLabel>
+              <Field signature value={r.name} onChangeText={(name) => editRoommate(r.key, { name })} accessibilityLabel={t('export.roommateName', { n })} />
+              <SectionLabel>{t('export.roommateSignature', { n })}</SectionLabel>
+              <SignaturePad label={t('export.roommatePad', { n })} onDone={(sig) => editRoommate(r.key, { signature: sig })} onDrawing={setDrawing} />
+              <Button
+                label={t('export.removeRoommate')}
+                a11y={t('export.removeRoommateA11y', { n })}
+                variant="tertiary"
+                onPress={() => setRoommates((rs) => rs.filter((x) => x.key !== r.key))}
+                style={styles.zip}
+              />
+            </View>
+          );
+        })}
+        <Button label={t('export.addRoommate')} variant="secondary" onPress={addRoommate} style={styles.zip} />
         <SectionLabel>{t('export.landlordName')}</SectionLabel>
         <Field signature value={landlord} onChangeText={setLandlord} accessibilityLabel={t('export.landlordName')} placeholder={t('common.optional')} />
         <Button label={t(busy ? 'export.buildingPdf' : 'export.exportPdf')} a11y={t('export.exportPdf')} onPress={submit} disabled={disabled} busy={busy} style={styles.button} />

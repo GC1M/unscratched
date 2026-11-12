@@ -6,7 +6,7 @@ import { recordSent } from '@/db/repo';
 import { syncReceipts } from '@/receipts/queue';
 
 import { buildReportHtml } from './buildReportHtml';
-import { exportReport, reportFileName, sendReport } from './export';
+import { exportReport, landlordMessage, reportFileName, sendReport } from './export';
 import { loadReportData } from './loadReport';
 import type { ReportData } from './types';
 
@@ -155,4 +155,10 @@ describe('sendReport', () => {
     expect(Print.printToFileAsync).not.toHaveBeenCalled();
     expect(recordSent).not.toHaveBeenCalled();
   });
+});
+
+test('the landlord email signs off with every tenant, skipping blank roommates', () => {
+  const roommates = [{ name: ' Cy ', signature: null }, { name: ' ', signature: null }];
+  const { body } = landlordMessage({ ...data, verificationCode: null, acknowledgement: { ...ack, roommates } });
+  expect(body.endsWith('\nAna\nCy')).toBe(true);
 });

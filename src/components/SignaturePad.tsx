@@ -19,8 +19,11 @@ const at = (e: GestureResponderEvent) => ({ x: e.nativeEvent.locationX, y: e.nat
 export function SignaturePad({
   onDone,
   onDrawing,
+  label,
 }: {
   onDone: (path: string | null) => void;
+  /** Screen-reader name; defaults to the tenant pad's. */
+  label?: string;
   /** True while a finger is down on the pad, so the parent can stop its ScrollView from stealing the stroke. */
   onDrawing?: (drawing: boolean) => void;
 }) {
@@ -87,7 +90,7 @@ export function SignaturePad({
       <View
         {...responder.panHandlers}
         accessible
-        accessibilityLabel={t('signature.pad')}
+        accessibilityLabel={label ?? t('signature.pad')}
         accessibilityHint={t('signature.hint')}
         onLayout={(e) => setSize(e.nativeEvent.layout)}
         style={[styles.pad, { backgroundColor: c.paper, borderColor: c.ink60 }]}

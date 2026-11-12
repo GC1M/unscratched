@@ -7,7 +7,9 @@ export interface Acknowledgement {
   landlordName: string | null;
   date: number;
   tenantSignature?: string | null; // SVG path data from strokesToPath; optional, drawn in addition to the typed name
+  roommates?: Roommate[]; // other tenants on the lease, each acknowledging with their own line
 }
+export interface Roommate { name: string; signature: string | null; }
 export interface ReportData {
   inspection: Inspection;
   rooms: ReportRoom[];
