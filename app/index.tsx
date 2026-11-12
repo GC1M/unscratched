@@ -76,6 +76,7 @@ export default function Home() {
       <Stack.Screen>
         <Stack.Toolbar placement="right">
           <Stack.Toolbar.Button icon="plus" accessibilityLabel={t('home.newInspection')} onPress={() => router.push('/inspection/new')} />
+          <Stack.Toolbar.Button icon="person.2" accessibilityLabel={t('home.expenses')} onPress={() => router.push('/expenses')} />
           <Stack.Toolbar.Button icon="gearshape" accessibilityLabel={t('home.settings')} onPress={() => router.push('/settings')} />
         </Stack.Toolbar>
       </Stack.Screen>
