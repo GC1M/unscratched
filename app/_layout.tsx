@@ -38,6 +38,7 @@ function Navigator() {
           <Stack.Screen name="inspection/new" />
           <Stack.Screen name="inspection/[id]/index" />
           <Stack.Screen name="inspection/[id]/export" />
+          <Stack.Screen name="inspection/[id]/deposit" />
           <Stack.Screen name="inspection/[id]/room/[roomId]" />
           <Stack.Screen name="item/[id]" />
           <Stack.Screen name="camera/[itemId]" />

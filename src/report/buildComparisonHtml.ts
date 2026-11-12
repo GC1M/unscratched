@@ -1,6 +1,7 @@
 import type { Photo } from '@/db/types';
 import { translator, type Lang, type T } from '@/i18n';
 import { depositDueDate, depositSummary, lookupDepositDeadline } from '@/legal/depositDeadlines';
+import { formatMoney, parseDepositSplit, settleDeposit } from '@/lib/depositSplit';
 
 import { conditionLabel, defaultFormatDate, pdfLocale, receiptLine, verificationText } from './buildReportHtml';
 import type { Comparison, ComparisonItem } from './comparison';
@@ -46,6 +47,41 @@ function change(t: T, i: ComparisonItem): string {
   return t(before === after ? 'cmp.same' : 'cmp.better');
 }
 
+/** Per-tenant deposit summary from the move-out's split, counting deductions on worsened items only. '' without a deposit. */
+function depositSplitSection(t: T, c: Comparison, locale: string): string {
+  const split = parseDepositSplit(c.moveOut.deposit_split);
+  const lines = c.rooms.flatMap((r) =>
+    r.items.flatMap((i) => {
+      const d = i.worsened && i.moveOut ? split.deductions[i.moveOut.item.id] : undefined;
+      return d && d.cents > 0 ? [{ name: i.name, ...d }] : [];
+    }),
+  );
+  let refunds;
+  try {
+    refunds = settleDeposit(split, lines);
+  } catch {
+    return ''; // stored split no longer valid (e.g. percentages): drop the summary, never the whole comparison
+  }
+  if (!refunds || split.depositCents == null) return '';
+  const money = (cents: number) => formatMoney(cents, locale);
+  const who = (to: number | null) => escapeHtml(split.tenants.find((x) => x.id === to)?.name ?? t('split.everyone'));
+  const deductions = lines.length
+    ? `<table><thead><tr><th>${t('common.item')}</th><th>${t('split.deduction')}</th><th>${t('split.chargedTo')}</th></tr></thead><tbody>
+${lines.map((l) => `<tr><td>${escapeHtml(l.name)}</td><td>${money(l.cents)}</td><td>${who(l.to)}</td></tr>`).join('\n')}
+</tbody></table>`
+    : '';
+  return `
+<section class="split">
+<h2>${t('split.title')}</h2>
+<p>${t('split.deposit')}: ${money(split.depositCents)}</p>
+${deductions}
+<table><thead><tr><th>${t('split.tenant')}</th><th>${t('split.share')}</th><th>${t('split.deductions')}</th><th>${t('split.refund')}</th></tr></thead><tbody>
+${refunds.map((r) => `<tr><td>${escapeHtml(r.name)}</td><td>${money(r.shareCents)}</td><td>${money(r.deductionCents)}</td><td>${money(r.refundCents)}</td></tr>`).join('\n')}
+</tbody></table>
+<p>${t('split.note')}</p>
+</section>`;
+}
+
 /** Pure: comparison in, a complete print-ready HTML document out. Every user string goes through escapeHtml. */
 export function buildComparisonHtml(c: Comparison, opts?: { formatDate?: (ms: number) => string; lang?: Lang }): string {
   const lang = opts?.lang ?? 'en';
@@ -77,7 +113,7 @@ ${hasPhotos('moveOut') ? row(t('cmp.moveOutVerification'), verificationText(c.mo
 </dl>
 <p>${t('cmp.intro')}</p>
 ${depositNote}
-</section>`;
+</section>${depositSplitSection(t, c, pdfLocale(lang))}`;
 
   const card = (name: string, side: Side, photo: Photo | undefined) => {
     if (!photo) return `<div class="card"><div class="missing">${t(`cmp.noPhoto.${side}`)}</div></div>`;

@@ -27,6 +27,7 @@ import {
 import type { Inspection, Room } from '@/db/types';
 import { depositDueDate, depositSummary, lookupDepositDeadline } from '@/legal/depositDeadlines';
 import { useT } from '@/i18n/context';
+import { formatMoney, parseDepositSplit } from '@/lib/depositSplit';
 import { shortDate } from '@/lib/format';
 import { nextRoom } from '@/lib/next';
 import { validatePortalUrl } from '@/lib/portalUrl';
@@ -243,6 +244,11 @@ export default function RoomList() {
   const allDone = !!summary && summary.itemsTotal > 0 && summary.roomsDone === summary.roomsTotal;
   const roomsLeft = summary ? summary.roomsTotal - summary.roomsDone : 0;
   const deposit = inspection?.kind === 'move_out' && inspection.state ? lookupDepositDeadline(inspection.state) : undefined;
+  const split = parseDepositSplit(inspection?.deposit_split ?? null);
+  const splitMeta =
+    split.depositCents != null
+      ? t('rooms.depositSplitMeta', { amount: formatMoney(split.depositCents, locale), n: split.tenants.length })
+      : t('rooms.notSet');
 
   if (error || inspection === null)
     return (
@@ -442,6 +448,17 @@ export default function RoomList() {
             ),
           )}
         </Group>
+        {locked && comparable && (
+          <>
+            <SectionLabel>{t('split.title')}</SectionLabel>
+            <Group>
+              <Row first onPress={() => router.push(`/inspection/${inspectionId}/deposit`)} a11y={`${t('rooms.depositSplit')}, ${splitMeta}`}>
+                <RowTitle>{t('rooms.depositSplit')}</RowTitle>
+                <RowMeta>{splitMeta}</RowMeta>
+              </Row>
+            </Group>
+          </>
+        )}
         <Button
           label={t(deleting ? 'rooms.deleting' : 'rooms.deleteInspection')}
           a11y={t('rooms.deleteInspection')}

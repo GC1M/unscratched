@@ -17,8 +17,6 @@ appId: app.unscratched
       - tapOn: "Next: .*"
       - waitForAnimationToEnd
 - tapOn: ${CONDITION}
+# Done with a room goes straight back to the room list (#99).
 - tapOn: "Done with ${ROOM}"
-- assertVisible: "5 of 5 items checked"
-- tapOn:
-    id: "BackButton"
 - assertVisible: "Open ${ROOM}, 5 of 5 items.*"
