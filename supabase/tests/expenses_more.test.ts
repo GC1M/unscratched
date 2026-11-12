@@ -598,5 +598,19 @@ const activity = async (token: string, group: Group) =>
       expect((await activity(a.token, g)).filter((r) => r.kind === 'expense_added').map((r) => r.ref_id)).toEqual([rows[0].id]);
       expect((await rpc(a.token, 'materialize_recurring', { p_group: g.id })).body).toBe(0);
     });
+
+    it('uses the date the phone passes, not the server date', async () => {
+      const g = await makeGroup(a);
+      await rpc(a.token, 'save_recurring', recurringArgs(g, a.id, { [a.id]: 500 }, { p_next_on: inDays(1) }));
+      expect((await rpc(a.token, 'materialize_recurring', { p_group: g.id, p_today: daysAgo(0) })).body).toBe(0);
+      expect((await rpc(a.token, 'materialize_recurring', { p_group: g.id, p_today: inDays(1) })).body).toBe(1);
+    });
+
+    it('clamps a date more than a day from the server date', async () => {
+      const g = await makeGroup(a);
+      const rec = await rpc(a.token, 'save_recurring', recurringArgs(g, a.id, { [a.id]: 500 }, { p_next_on: inDays(3) }));
+      expect((await rpc(a.token, 'materialize_recurring', { p_group: g.id, p_today: inDays(30) })).body).toBe(0);
+      expect((await select(a.token, `recurring_expenses?id=eq.${rec.body.id}&select=next_on`)).body).toEqual([{ next_on: inDays(3) }]);
+    });
   });
 });

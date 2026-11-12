@@ -90,7 +90,7 @@ export async function joinGroup(code: string, displayName: string, claim: string
 /** Adds any due recurring expenses, then reads everything the group screen needs. */
 export async function loadGroup(groupId: string): Promise<GroupData> {
   const s = need();
-  ok(await s.rpc('materialize_recurring', { p_group: groupId }));
+  ok(await s.rpc('materialize_recurring', { p_group: groupId, p_today: localToday() }));
   const [group, members, expenses, settlements, recurring] = await Promise.all([
     s.from('expense_groups').select('*').eq('id', groupId).single(),
     s.from('group_members').select('user_id, display_name, placeholder, left_at').eq('group_id', groupId)
