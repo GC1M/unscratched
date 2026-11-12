@@ -57,6 +57,6 @@ export function settleDeposit(split: DepositSplit, deductions: Deduction[]): Ten
   });
 }
 
-/** Currency-neutral money, e.g. 1234 -> "12.34" (en) or "12,34" (es). */
-export const formatMoney = (cents: number, locale?: string) =>
-  (cents / 100).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/** Money in the inspection's currency (null: USD), e.g. 1234 -> "$12.34" (en) or "12,34 US$" (es). */
+export const formatMoney = (cents: number, currency: string | null, locale?: string) =>
+  new Intl.NumberFormat(locale, { style: 'currency', currency: currency ?? 'USD' }).format(cents / 100);

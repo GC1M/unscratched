@@ -1,7 +1,7 @@
 export type InspectionKind = 'move_in' | 'move_out';
 export type SentChannel = 'email' | 'portal' | 'share';
 export type Condition = 'good' | 'fair' | 'damaged';
-export interface Inspection { id: number; address: string; unit: string | null; kind: InspectionKind; started_at: number; finished_at: number | null; tenant_name: string | null; landlord_name: string | null; linked_move_in_id: number | null; move_out_date: number | null; landlord_email: string | null; portal_url: string | null; sent_at: number | null; sent_channel: SentChannel | null; state: string | null; deposit_split: string | null; }
+export interface Inspection { id: number; address: string; unit: string | null; kind: InspectionKind; started_at: number; finished_at: number | null; tenant_name: string | null; landlord_name: string | null; linked_move_in_id: number | null; move_out_date: number | null; landlord_email: string | null; portal_url: string | null; sent_at: number | null; sent_channel: SentChannel | null; state: string | null; deposit_split: string | null; currency: string | null; }
 export interface Room { id: number; inspection_id: number; name: string; sort: number; }
 export interface Item { id: number; room_id: number; name: string; condition: Condition | null; note: string | null; sort: number; }
 export interface Photo { id: number; item_id: number; file_uri: string; sha256: string; captured_at: number; width: number; height: number; source: 'camera'; }

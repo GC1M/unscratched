@@ -69,6 +69,8 @@ export const migrations: string[] = [
   `,
   // Move-out deposit split between tenants (JSON, see src/lib/depositSplit.ts). Settlement data, editable after finish.
   'ALTER TABLE inspection ADD COLUMN deposit_split TEXT;',
+  // ISO 4217 code for money amounts, set from the region at creation. Null (rows from before this) means USD.
+  'ALTER TABLE inspection ADD COLUMN currency TEXT;',
 ];
 
 export async function migrate(db: SQLiteDatabase): Promise<void> {

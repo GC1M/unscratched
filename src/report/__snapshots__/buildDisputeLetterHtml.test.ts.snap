@@ -98,7 +98,7 @@ th { background: #f2f2f2; }
 <p>Pat Owner<br><span class="placeholder">[Landlord mailing address]</span></p>
 <p><strong>Re: Return of security deposit for 12 Elm St, Unit 4B</strong></p>
 <p>Dear Pat Owner,</p>
-<p>I rented 12 Elm St, Unit 4B and moved in on 2026-01-02. I moved out on 2027-01-01. I am writing to ask that my security deposit of 2,000.00 be returned in full, or that you send an itemized list of any deductions.</p>
+<p>I rented 12 Elm St, Unit 4B and moved in on 2026-01-02. I moved out on 2027-01-01. I am writing to ask that my security deposit of $2,000.00 be returned in full, or that you send an itemized list of any deductions.</p>
 <p>In California, landlords generally have 21 days after move-out to return the deposit. Itemized statement and any refund are both due within 21 days. By that rule the deposit is due around 2027-01-22. Source: https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=CIV&amp;sectionNum=1950.5.</p>
 <p>I documented the unit's condition at move-in and at move-out. 2 items were recorded in the same or better condition at move-out.</p>
 <p>The comparison marks 2 items as being in worse condition at move-out than at move-in. I list them here so we can discuss them openly, and I ask that any deduction for them be itemized with receipts or estimates and reflect only damage beyond normal wear and tear:</p>
@@ -106,15 +106,15 @@ th { background: #f2f2f2; }
 <tr><td>Kitchen</td><td>Oven</td><td>Good</td><td>Damaged</td><td>Scorch mark on door</td></tr>
 <tr><td>Bath</td><td>Mirror</td><td>Good</td><td>Fair</td><td></td></tr>
 </tbody></table>
-<p>The deductions claimed against the deposit total 200.01:</p>
+<p>The deductions claimed against the deposit total $200.01:</p>
 <table><thead><tr><th>Item</th><th>Deduction</th></tr></thead><tbody>
-<tr><td>Oven</td><td>150.00</td></tr>
-<tr><td>Mirror</td><td>50.01</td></tr>
+<tr><td>Oven</td><td>$150.00</td></tr>
+<tr><td>Mirror</td><td>$50.01</td></tr>
 </tbody></table>
-<p>After any deductions, we expect a total refund of 1,799.99, split between the people on the lease as follows:</p>
+<p>After any deductions, we expect a total refund of $1,799.99, split between the people on the lease as follows:</p>
 <table><thead><tr><th>Person</th><th>Expected refund</th></tr></thead><tbody>
-<tr><td>Sam Renter</td><td>974.99</td></tr>
-<tr><td>Alex Mate</td><td>825.00</td></tr>
+<tr><td>Sam Renter</td><td>$974.99</td></tr>
+<tr><td>Alex Mate</td><td>$825.00</td></tr>
 </tbody></table>
 <p>The attached move-in vs move-out comparison report has dated photos of the unit with server timestamps. It can be checked with verification code abcdef012345 at unscratched.app/v/abcdef012345.</p>
 <p>Please send the deposit to <span class="placeholder">[Forwarding address]</span>. Thank you for your help.</p>

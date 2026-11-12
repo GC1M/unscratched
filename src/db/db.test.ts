@@ -85,6 +85,15 @@ describe('migrate', () => {
     await migrate(db);
     expect(execAsync).not.toHaveBeenCalled();
   });
+
+  test('the currency migration keeps existing rows, with a null (USD) currency', async () => {
+    const { raw, db } = fakeDb();
+    for (const sql of migrations.slice(0, -1)) raw.exec(sql);
+    raw.exec(`PRAGMA user_version = ${migrations.length - 1}`);
+    raw.exec("INSERT INTO inspection (address, kind, started_at) VALUES ('1 Main St', 'move_in', 1)");
+    await migrate(db);
+    expect(raw.prepare('SELECT address, currency FROM inspection').all()).toEqual([{ address: '1 Main St', currency: null }]);
+  });
 });
 
 describe('repo', () => {
@@ -114,6 +123,7 @@ describe('repo', () => {
       sent_at: null,
       sent_channel: null,
       deposit_split: null,
+      currency: null,
     });
     expect((await repo.listInspections(db)).map((i) => i.id)).toEqual([b, a]);
     expect(await repo.getInspection(db, 999)).toBeNull();
@@ -147,6 +157,16 @@ describe('repo', () => {
     const id = await repo.createInspectionFromTemplate(db, { address: 'x' }, undefined, 'UK');
     const rooms = await repo.listRooms(db, id);
     expect(rooms.map((r) => r.name)).toEqual(expandTemplate(undefined, 'UK').map((r) => r.name));
+  });
+
+  test('createInspectionFromTemplate stores the region currency', async () => {
+    const { db } = await setup();
+    const currency = async (region?: 'US' | 'UK' | 'CA') =>
+      (await repo.getInspection(db, await repo.createInspectionFromTemplate(db, { address: 'x' }, undefined, region)))?.currency;
+    expect(await currency()).toBe('USD');
+    expect(await currency('US')).toBe('USD');
+    expect(await currency('UK')).toBe('GBP');
+    expect(await currency('CA')).toBe('CAD');
   });
 
   test('rooms append, rename, reorder, and delete keep sort contiguous', async () => {
@@ -379,6 +399,7 @@ describe('repo', () => {
         landlord_name: 'Lou',
         move_out_date: 99,
         state: 'WA',
+        currency: 'CAD',
       });
       const kitchen = await repo.addRoom(db, insp, 'Kitchen');
       const bath = await repo.addRoom(db, insp, 'Bath');
@@ -423,6 +444,7 @@ describe('repo', () => {
         landlord_name: 'Lou',
         move_out_date: 99,
         state: 'WA',
+        currency: 'CAD',
         finished_at: null,
       });
       expect(await shape(db, out)).toEqual(await shape(db, insp));
