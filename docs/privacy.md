@@ -2,17 +2,22 @@
 
 Effective date: [effective date]
 
-Unscratched is a free app that helps renters document the condition of a home. This page explains what happens to your information. The short version: your photos, addresses, names, and notes stay on your phone. The only thing that leaves it is a fingerprint of each photo, used to get a timestamp receipt. If you turn on the optional "Suggest notes from photos" setting, a photo you choose is also sent, once, to get a suggested note, and is not stored.
+Unscratched is a free app that helps renters document the condition of a home. This page explains what happens to your information. The short version: your inspection photos, addresses, names, and notes stay on your phone. The only thing that leaves it is a fingerprint of each photo, used to get a timestamp receipt. If you turn on the optional "Suggest notes from photos" setting, a photo you choose is also sent, once, to get a suggested note, and is not stored. If you use the optional Shared expenses feature, you sign in with your email, and the expenses you and your roommates add are stored on our server so everyone in the group can see them.
 
 ## What we collect
 
-Unscratched has no accounts, no sign-in, no analytics, no ads, and no tracking SDKs. We do not sell any data.
+Inspections need no account. Unscratched has no analytics, no ads, and no tracking SDKs. We do not sell any data.
 
-By default, the only thing we receive is photo fingerprints (see "Timestamp receipts" below). We never receive your addresses, names, notes, or anything that identifies you. We only receive a photo if you turn on note suggestions and tap "Suggest note" on it (see "Optional note suggestions" below).
+By default, the only thing we receive is photo fingerprints (see "Timestamp receipts" below). We never receive your inspection addresses, names, notes, or anything that identifies you. We only receive an inspection photo if you turn on note suggestions and tap "Suggest note" on it (see "Optional note suggestions" below).
+
+Two optional features send more:
+
+- Shared expenses needs an account (your email address) and stores what you enter there on our server, linked to that account (see "Optional shared expenses" below).
+- If you ask your landlord to acknowledge a report, the name your landlord types is stored with the report's fingerprint (see "Landlord acknowledgements" below).
 
 ## Where your data lives
 
-Everything you enter (addresses, names, notes, and photos) is stored only on your device. Photos are saved in the app's documents folder. Depending on your settings, iOS may include that folder in your own iCloud device backup. That backup is controlled by you and Apple, not by us.
+Everything you enter for an inspection (addresses, names, notes, photos, signatures, and the deposit split between roommates) is stored only on your device. Photos are saved in the app's documents folder. Depending on your settings, iOS may include that folder in your own iCloud device backup. That backup is controlled by you and Apple, not by us.
 
 ## Sharing
 
@@ -42,6 +47,19 @@ Anyone who has a fingerprint, or the verification code printed in your report, c
 
 Fingerprints are kept so receipts stay checkable. Because they are not linked to you, we cannot find "your" fingerprints to delete them.
 
+## Landlord acknowledgements
+
+After you finish an inspection, you can send your landlord a link to acknowledge the report. The link contains the report's fingerprint, not the report. If your landlord opens it and types their name, our server stores the fingerprint, that name, and the time. Your app then fetches the acknowledgements for your report so it can show them. Nothing about you is sent or stored. Each report can be acknowledged at most 5 times.
+
+## Optional shared expenses
+
+Shared expenses lets roommates split bills. It is the only part of Unscratched with an account, and nothing below happens unless you open it and sign in.
+
+- Sign-in: you enter your email address and we email you a 6-digit code. Your email address is stored by our authentication provider (Supabase) as your account. The app keeps your sign-in session on your phone.
+- What we store: the groups you create or join (name, currency, invite code), the display name you use in each group, and everything added to the group: expenses (description, amount, category, date, who paid, each person's share, and any itemized lines), payments between members, recurring expenses, and receipt photos you attach.
+- Who can see it: only members of the same group. Anyone with a group's invite code can join it, so share the code only with your roommates. Receipt photos are kept in private storage that only group members can read.
+- What it is used for: only to show the group's expenses and balances to its members. It is not used for advertising or shared with anyone else.
+
 ## Optional note suggestions
 
 This feature is off unless you turn on "Suggest notes from photos" in Settings. When it is off, the app sends no photos and makes no suggestion requests.
@@ -57,7 +75,17 @@ The suggestion is only shown to you. Nothing is added to your note or condition 
 
 ## Deleting your data
 
-Deleting the app deletes its data from your device. We hold no copy of your photos or inspection details. The only things on our side are anonymous photo fingerprints and, if you used note suggestions, daily suggestion counts for a random install id, as described above. If you have an iCloud device backup that included the app, manage or delete that backup in your iCloud settings.
+Deleting the app deletes its inspection data from your device. We hold no copy of your inspection photos or details. The only things on our side for inspections are anonymous photo fingerprints, landlord acknowledgements if you asked for one, and, if you used note suggestions, daily suggestion counts for a random install id, as described above.
+
+If you used Shared expenses, deleting the app does not delete your account or your groups' data, because your roommates still use it. You can delete expenses, payments, and recurring expenses in the app at any time.
+
+To delete your account, open Shared expenses while signed in and tap Delete account. This takes effect right away and cannot be undone:
+
+- Your account, your email address, and your sign-in sessions are deleted.
+- A group where no other signed-up member is still in it is deleted completely, with its expenses, payments, comments, activity, and receipt photos.
+- In a group you share with roommates, the expenses, payments, comments, and receipt photos stay, because the other members' balances depend on them. Your place in the group is renamed "Former member" and is no longer connected to your account or email. Recurring expenses you pay or share in stop. If you created the group, the longest-standing remaining member takes it over.
+
+If you can no longer open the app, email us at [contact email] from the address you signed in with, and we will delete your account the same way within 30 days. If you have an iCloud device backup that included the app, manage or delete that backup in your iCloud settings.
 
 ## Changes
 
