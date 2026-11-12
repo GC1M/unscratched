@@ -1,3 +1,4 @@
+import * as Linking from 'expo-linking';
 import { Stack, router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text } from 'react-native';
@@ -9,7 +10,8 @@ import { Group, Row, RowMeta, RowTitle, SectionLabel } from '@/components/Group'
 import { Screen } from '@/components/Screen';
 import { Loading, Problem, errorMessage } from '@/components/Status';
 import {
-  createGroup, currentUserId, deleteAccount, groupPreview, joinGroup, listGroups, sendCode, signOut, supabase, verifyCode, type GroupPreview,
+  createGroup, currentUserId, deleteAccount, groupPreview, joinGroup, listGroups, sendCode, signInFromLink, signOut, supabase, verifyCode,
+  type GroupPreview,
 } from '@/expenses/api';
 import type { GroupRow } from '@/expenses/types';
 import { useT } from '@/i18n/context';
@@ -50,6 +52,18 @@ export default function Expenses() {
       load();
     }, [load]),
   );
+
+  // Tapping the email's sign-in link opens this screen with the session in the URL.
+  const url = Linking.useURL();
+  useEffect(() => {
+    if (!url) return;
+    signInFromLink(url).then(
+      (signedIn) => {
+        if (signedIn) load();
+      },
+      (e) => Alert.alert(t('exp.failed'), errorMessage(e)),
+    );
+  }, [url, load, t]);
 
   // A full invite code shows the group's name and any spots added for people who have not joined yet.
   const fullCode = mode === 'join' && invite.trim().length === 8;
@@ -138,6 +152,7 @@ export default function Expenses() {
             <>
               <SectionLabel>{t('exp.code')}</SectionLabel>
               <Field value={code} onChangeText={setCode} accessibilityLabel={t('exp.code')} keyboardType="number-pad" autoComplete="one-time-code" />
+              <Text style={[styles.intro, { color: c.ink60 }]}>{t('exp.linkHint')}</Text>
             </>
           )}
           <Button

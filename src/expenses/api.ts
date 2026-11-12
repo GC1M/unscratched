@@ -37,9 +37,30 @@ function ok<T>({ data, error }: { data?: T; error: { message: string } | null })
   return data as T;
 }
 
-/** Emails a 6-digit sign-in code. A new address gets an account. */
+/** Where the email's sign-in link returns to: the shared expenses screen. Must be in the project's redirect allow list. */
+export const SIGN_IN_REDIRECT = 'unscratched://expenses';
+
+/** Emails a sign-in code and link. A new address gets an account. */
 export async function sendCode(email: string): Promise<void> {
-  ok(await need().auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: true } }));
+  ok(await need().auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: true, emailRedirectTo: SIGN_IN_REDIRECT } }));
+}
+
+/**
+ * Signs in from the email link's redirect, which carries the session tokens (or an error) in the URL fragment.
+ * Returns false for a URL without them, so any other deep link is ignored.
+ */
+export async function signInFromLink(url: string): Promise<boolean> {
+  const hash = url.split('#')[1];
+  if (!hash) return false;
+  const p: Record<string, string> = {};
+  for (const pair of hash.split('&')) {
+    const [k, v = ''] = pair.split('=');
+    p[decodeURIComponent(k)] = decodeURIComponent(v.replace(/\+/g, ' '));
+  }
+  if (p.error_description) throw new Error(p.error_description);
+  if (!p.access_token || !p.refresh_token) return false;
+  ok(await need().auth.setSession({ access_token: p.access_token, refresh_token: p.refresh_token }));
+  return true;
 }
 
 export async function verifyCode(email: string, token: string): Promise<void> {
