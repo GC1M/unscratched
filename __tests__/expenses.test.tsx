@@ -20,7 +20,7 @@ jest.mock('@/expenses/api', () => ({
   removeMember: jest.fn(async () => {}), resetInvite: jest.fn(async () => 'NEWCODE2'), updateGroup: jest.fn(async () => {}),
   renameMe: jest.fn(async () => {}), deleteGroup: jest.fn(async () => {}), supabase: jest.fn(() => ({})), listGroups: jest.fn(async () => []),
   groupPreview: jest.fn(), joinGroup: jest.fn(async () => ({ id: 'g' })), createGroup: jest.fn(), sendCode: jest.fn(), verifyCode: jest.fn(),
-  signOut: jest.fn(),
+  signOut: jest.fn(), deleteAccount: jest.fn(async () => {}),
 }));
 jest.mock('@/db/client', () => ({ getDb: jest.fn(async () => ({})) }));
 jest.mock('expo-camera', () => ({ CameraView: () => null, useCameraPermissions: () => [{ granted: true }, jest.fn()] }));
@@ -306,4 +306,19 @@ test('joining with a code can take over a spot added for you', async () => {
   await fireEvent.press(screen.getByRole('radio', { name: 'Dee' }));
   await fireEvent.press(screen.getByRole('button', { name: 'Join group' }));
   expect(api.joinGroup).toHaveBeenCalledWith('ABCD2345', '', 'p');
+});
+
+test('delete account asks first and only deletes after the destructive confirmation', async () => {
+  jest.mocked(api.currentUserId).mockResolvedValue('a');
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  await render(<Expenses />);
+  await fireEvent.press(await screen.findByRole('button', { name: 'Delete account' }));
+  expect(alert).toHaveBeenCalledWith('Delete your account?', expect.stringContaining('cannot be undone'), expect.any(Array));
+  const buttons = alert.mock.calls[0][2] as AlertButton[];
+  expect(buttons.map((b) => [b.text, b.style])).toEqual([['Cancel', 'cancel'], ['Delete account', 'destructive']]);
+  expect(api.deleteAccount).not.toHaveBeenCalled();
+  jest.mocked(api.currentUserId).mockResolvedValue(null);
+  await buttons[1].onPress!();
+  expect(api.deleteAccount).toHaveBeenCalledTimes(1);
+  expect(await screen.findByRole('button', { name: 'Email me a code' })).toBeOnTheScreen();
 });

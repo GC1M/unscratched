@@ -50,6 +50,17 @@ export async function signOut(): Promise<void> {
   ok(await need().auth.signOut());
 }
 
+/**
+ * Deletes the signed-in account on the server (see supabase/functions/delete-account), then drops the local session.
+ * Groups only this account was still in are deleted; in shared groups its history stays as "Former member".
+ */
+export async function deleteAccount(): Promise<void> {
+  const s = need();
+  ok(await s.functions.invoke('delete-account', { method: 'POST' }));
+  // The server session is already gone, so only clear the stored one.
+  ok(await s.auth.signOut({ scope: 'local' }));
+}
+
 export async function currentUserId(): Promise<string | null> {
   const s = supabase();
   if (!s) return null;

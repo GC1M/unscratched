@@ -138,7 +138,7 @@ Resulting label: "Data Linked to You: Contact Info, Financial Info, User Content
 
 Landlord acknowledgements are not declared: the landlord's name is entered on a web page by the landlord, not collected from the app's user, and the app only reads it back.
 
-**Launch blocker:** App Store Review Guideline 5.1.1(v) requires an app that lets people create an account to also let them start account deletion inside the app. The app has no account deletion yet, so add it before submitting a build with shared expenses. Google Play has the same requirement, plus a web link for deletion requests.
+**Account deletion (App Store Review Guideline 5.1.1(v), Google Play account deletion policy):** signed-in users delete their account in the app (Shared expenses > Delete account, with a confirmation). The delete-account edge function deletes the account at once; see "Deleting your data" in the privacy policy for what happens to group data. For Google Play's web deletion link, use the privacy policy URL: its "Deleting your data" section explains the in-app steps and gives the email route for people who no longer have the app. This needs both the shared-expenses follow-up (#105) and the account deletion PR merged, and the `delete-account` function deployed (`supabase functions deploy delete-account`), before a build with shared expenses is submitted.
 
 Why not "Data Not Collected": Apple counts data as collected when it is transmitted off the device and kept longer than needed to answer the request in real time. The fingerprints are stored on our server permanently so receipts stay checkable, so they are collected. They are derived from the user's photos, so "Other User Content" is the closest honest category. Claiming "Data Not Collected" now would be inaccurate and is a review risk.
 
@@ -152,7 +152,7 @@ Why the IP is not declared: Apple's guidance excludes data that is not stored be
 | --- | --- |
 | Does your app collect or share any of the required user data types? | Yes |
 | Is all user data collected by your app encrypted in transit? | Yes (HTTPS to Supabase) |
-| Do you provide a way for users to request that their data is deleted? | Yes, once account deletion ships (see the launch blocker above). Until then, the privacy policy offers deletion by email. Inspection data is not linked to any user, so only shared-expenses accounts can be deleted |
+| Do you provide a way for users to request that their data is deleted? | Yes. Signed-in users delete their shared-expenses account in the app (Shared expenses > Delete account), and the privacy policy URL is the web link for deletion requests (by email). Inspection data is not linked to any user, so only shared-expenses accounts can be deleted. Data kept after deletion: expenses and payments in groups shared with other members stay, no longer linked to the account, because those members' balances depend on them |
 | Data type collected | App activity > Other user-generated content (photo fingerprints) |
 | Collected or shared? | Collected. Not shared (Supabase is a service provider processing on our behalf, which Google does not count as sharing) |
 | Processed ephemerally? | No (stored permanently) |

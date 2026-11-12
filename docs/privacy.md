@@ -77,7 +77,15 @@ The suggestion is only shown to you. Nothing is added to your note or condition 
 
 Deleting the app deletes its inspection data from your device. We hold no copy of your inspection photos or details. The only things on our side for inspections are anonymous photo fingerprints, landlord acknowledgements if you asked for one, and, if you used note suggestions, daily suggestion counts for a random install id, as described above.
 
-If you used Shared expenses, deleting the app does not delete your account or your groups' data, because your roommates still use it. You can delete expenses, payments, and recurring expenses in the app. To delete your account, email us at [contact email] from the address you signed in with. We will delete your account and your membership in every group within 30 days. Expenses you added to a group stay visible to its other members, because their balances depend on them. If you have an iCloud device backup that included the app, manage or delete that backup in your iCloud settings.
+If you used Shared expenses, deleting the app does not delete your account or your groups' data, because your roommates still use it. You can delete expenses, payments, and recurring expenses in the app at any time.
+
+To delete your account, open Shared expenses while signed in and tap Delete account. This takes effect right away and cannot be undone:
+
+- Your account, your email address, and your sign-in sessions are deleted.
+- A group where no other signed-up member is still in it is deleted completely, with its expenses, payments, comments, activity, and receipt photos.
+- In a group you share with roommates, the expenses, payments, comments, and receipt photos stay, because the other members' balances depend on them. Your place in the group is renamed "Former member" and is no longer connected to your account or email. Recurring expenses you pay or share in stop. If you created the group, the longest-standing remaining member takes it over.
+
+If you can no longer open the app, email us at [contact email] from the address you signed in with, and we will delete your account the same way within 30 days. If you have an iCloud device backup that included the app, manage or delete that backup in your iCloud settings.
 
 ## Changes
 
