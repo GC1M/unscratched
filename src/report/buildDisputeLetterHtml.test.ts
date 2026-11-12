@@ -42,6 +42,7 @@ const inspection = (over: Partial<Inspection>): Inspection => ({
   sent_at: null,
   sent_channel: null,
   deposit_split: null,
+  currency: null,
   ...over,
 });
 
@@ -191,22 +192,22 @@ const roommates = {
 test("with a deposit split: snapshot with the deposit, itemized deductions, and each roommate's refund", () => {
   const html = buildDisputeLetterHtml(withDeposit(roommates), { formatDate });
   expect(html).toMatchSnapshot();
-  expect(html).toContain('my security deposit of 2,000.00 be returned');
+  expect(html).toContain('my security deposit of $2,000.00 be returned');
   expect(html).not.toContain('[Deposit amount]');
-  expect(html).toContain('The deductions claimed against the deposit total 200.01:');
-  expect(html).toContain('<tr><td>Oven</td><td>150.00</td></tr>');
-  expect(html).toContain('<tr><td>Mirror</td><td>50.01</td></tr>');
-  expect(html).toContain('we expect a total refund of 1,799.99');
+  expect(html).toContain('The deductions claimed against the deposit total $200.01:');
+  expect(html).toContain('<tr><td>Oven</td><td>$150.00</td></tr>');
+  expect(html).toContain('<tr><td>Mirror</td><td>$50.01</td></tr>');
+  expect(html).toContain('we expect a total refund of $1,799.99');
   // Same settlement as the comparison report: Alex carries the oven, the shared mirror's odd cent goes by largest remainder.
-  expect(html).toContain('<tr><td>Sam Renter</td><td>974.99</td></tr>');
-  expect(html).toContain('<tr><td>Alex Mate</td><td>825.00</td></tr>');
+  expect(html).toContain('<tr><td>Sam Renter</td><td>$974.99</td></tr>');
+  expect(html).toContain('<tr><td>Alex Mate</td><td>$825.00</td></tr>');
   expect(buildDisputeLetterHtml(withDeposit(roommates), { formatDate, lang: 'es' })).toContain('esperamos un reembolso total de 1799,99');
 });
 
 test('with a deposit and no roommates: one expected refund, no per-person table, no deduction table without deductions', () => {
   const html = buildDisputeLetterHtml(withDeposit({ depositCents: 150000, tenants: [], deductions: {} }), { formatDate });
-  expect(html).toContain('my security deposit of 1,500.00 be returned');
-  expect(html).toContain('<p>After any deductions, I expect a refund of 1,500.00.</p>');
+  expect(html).toContain('my security deposit of $1,500.00 be returned');
+  expect(html).toContain('<p>After any deductions, I expect a refund of $1,500.00.</p>');
   expect(html).not.toContain('deductions claimed');
   expect(html).not.toContain('Expected refund');
 });
@@ -236,5 +237,5 @@ test('escapes roommate and item names in the deposit section', () => {
   expect(html).not.toContain('<img');
   expect(html).toContain('<tr><td>&lt;b&gt;Sam&lt;/b&gt;</td>');
   expect(html).toContain('<tr><td>&lt;script&gt;x()&lt;/script&gt;</td>');
-  expect(html).toContain('<tr><td>&lt;img src=x onerror=alert(1)&gt;</td><td>150.00</td></tr>');
+  expect(html).toContain('<tr><td>&lt;img src=x onerror=alert(1)&gt;</td><td>$150.00</td></tr>');
 });

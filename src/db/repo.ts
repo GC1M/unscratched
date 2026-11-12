@@ -1,7 +1,7 @@
 import { File, Paths } from 'expo-file-system';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { expandTemplate, type Region } from '../templates/rooms';
+import { expandTemplate, REGION_CURRENCY, type Region } from '../templates/rooms';
 
 import type { Condition, Inspection, InspectionKind, Item, Photo, Receipt, Room, SentChannel } from './types';
 
@@ -44,12 +44,13 @@ export interface NewInspection {
   linked_move_in_id?: number | null;
   move_out_date?: number | null;
   state?: string | null;
+  currency?: string | null;
 }
 
 export async function createInspection(db: SQLiteDatabase, input: NewInspection): Promise<number> {
   const r = await db.runAsync(
-    `INSERT INTO inspection (address, unit, kind, started_at, tenant_name, landlord_name, linked_move_in_id, move_out_date, state)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO inspection (address, unit, kind, started_at, tenant_name, landlord_name, linked_move_in_id, move_out_date, state, currency)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     input.address,
     input.unit ?? null,
     input.kind ?? 'move_in',
@@ -59,6 +60,7 @@ export async function createInspection(db: SQLiteDatabase, input: NewInspection)
     input.linked_move_in_id ?? null,
     input.move_out_date ?? null,
     input.state ?? null,
+    input.currency ?? null,
   );
   return r.lastInsertRowId;
 }
@@ -72,7 +74,7 @@ export async function createInspectionFromTemplate(
 ): Promise<number> {
   let id = 0;
   await db.withTransactionAsync(async () => {
-    id = await createInspection(db, input);
+    id = await createInspection(db, { currency: REGION_CURRENCY[region], ...input });
     for (const room of expandTemplate(roomNames, region)) {
       const r = await db.runAsync('INSERT INTO room (inspection_id, name, sort) VALUES (?, ?, ?)', id, room.name, room.sort);
       for (const item of room.items) {
@@ -112,6 +114,7 @@ export async function copyFromMoveIn(db: SQLiteDatabase, moveInId: number): Prom
       linked_move_in_id: src.id,
       move_out_date: src.move_out_date,
       state: src.state,
+      currency: src.currency,
     });
     for (const room of await listRooms(db, moveInId)) {
       const r = await db.runAsync('INSERT INTO room (inspection_id, name, sort) VALUES (?, ?, ?)', id, room.name, room.sort);

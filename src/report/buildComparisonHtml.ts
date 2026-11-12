@@ -67,7 +67,7 @@ function depositSplitSection(t: T, c: Comparison, locale: string): string {
     return ''; // stored split no longer valid (e.g. percentages): drop the summary, never the whole comparison
   }
   if (!refunds || split.depositCents == null) return '';
-  const money = (cents: number) => formatMoney(cents, locale);
+  const money = (cents: number) => formatMoney(cents, c.moveOut.currency, locale);
   const who = (to: number | null) => escapeHtml(split.tenants.find((x) => x.id === to)?.name ?? t('split.everyone'));
   const deductions = lines.length
     ? `<table><thead><tr><th>${t('common.item')}</th><th>${t('split.deduction')}</th><th>${t('split.chargedTo')}</th></tr></thead><tbody>

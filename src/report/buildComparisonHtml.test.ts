@@ -50,6 +50,7 @@ const fixture = (): Comparison => ({
     sent_at: null,
     sent_channel: null,
     deposit_split: null,
+    currency: null,
   },
   moveOut: {
     id: 2,
@@ -68,6 +69,7 @@ const fixture = (): Comparison => ({
     sent_at: null,
     sent_channel: null,
     deposit_split: null,
+    currency: null,
   },
   rooms: [
     {
@@ -207,11 +209,11 @@ test('deposit split: per-tenant summary counts deductions on worsened items only
   });
   const html = buildComparisonHtml(c, { formatDate });
   expect(html).toContain('<h2>Deposit split</h2>');
-  expect(html).toContain('<p>Deposit amount: 1,500.00</p>');
-  expect(html).toContain('<tr><td>Oven</td><td>200.00</td><td>Ben</td></tr>');
-  expect(html).not.toContain('<td>Sink</td><td>9.99</td>');
-  expect(html).toContain('<tr><td>Ana &lt;b&gt;</td><td>750.00</td><td>0.00</td><td>750.00</td></tr>');
-  expect(html).toContain('<tr><td>Ben</td><td>750.00</td><td>200.00</td><td>550.00</td></tr>');
+  expect(html).toContain('<p>Deposit amount: $1,500.00</p>');
+  expect(html).toContain('<tr><td>Oven</td><td>$200.00</td><td>Ben</td></tr>');
+  expect(html).not.toContain('<td>Sink</td><td>$9.99</td>');
+  expect(html).toContain('<tr><td>Ana &lt;b&gt;</td><td>$750.00</td><td>$0.00</td><td>$750.00</td></tr>');
+  expect(html).toContain('<tr><td>Ben</td><td>$750.00</td><td>$200.00</td><td>$550.00</td></tr>');
   expect(html).not.toContain('Ana <b>');
 });
 

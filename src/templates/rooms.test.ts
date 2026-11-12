@@ -1,4 +1,4 @@
-import { REGION_TEMPLATES, ROOM_TEMPLATES, expandTemplate } from './rooms';
+import { REGION_CURRENCY, REGION_TEMPLATES, ROOM_TEMPLATES, expandTemplate } from './rooms';
 
 describe('expandTemplate', () => {
   it('expands every template room in order with sequential sorts', () => {
@@ -81,4 +81,8 @@ describe('expandTemplate', () => {
     expect(den.items.map((x) => x.name)).toEqual(['Walls', 'Floor', 'Ceiling']);
     expect(expandTemplate(['Lounge'], 'US')[0].items.map((x) => x.name)).toEqual(['Walls', 'Floor', 'Ceiling']);
   });
+});
+
+test('each region maps to its currency', () => {
+  expect(REGION_CURRENCY).toEqual({ US: 'USD', UK: 'GBP', CA: 'CAD' });
 });

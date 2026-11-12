@@ -48,6 +48,7 @@ export default function DepositSplitScreen() {
   const inspectionId = Number(useLocalSearchParams<{ id: string }>().id);
   const [changed, setChanged] = useState<Changed[] | null>(null);
   const [refusal, setRefusal] = useState<string | null>(null);
+  const [currency, setCurrency] = useState<string | null>(null);
   const [deposit, setDeposit] = useState('');
   const [tenants, setTenants] = useState<TenantDraft[]>([]);
   const [deductions, setDeductions] = useState<Record<number, DeductionDraft>>({});
@@ -61,6 +62,7 @@ export default function DepositSplitScreen() {
       if (moveOut.inspection.kind !== 'move_out' || moveInId == null) return setRefusal(t('split.notLinked'));
       const cmp = buildComparison(await bare(db, moveInId), moveOut);
       const split = parseDepositSplit(moveOut.inspection.deposit_split);
+      setCurrency(moveOut.inspection.currency);
       setDeposit(centsText(split.depositCents));
       setTenants(
         split.tenants.length
@@ -138,7 +140,7 @@ export default function DepositSplitScreen() {
       <Screen floating={<Button label={t('common.save')} onPress={save} busy={saving} />}>
         <Text style={[styles.intro, { color: c.ink60 }]}>{t('split.intro')}</Text>
         <SectionLabel>{t('split.deposit')}</SectionLabel>
-        <Field value={deposit} onChangeText={setDeposit} keyboardType="decimal-pad" placeholder={formatMoney(0, locale)} accessibilityLabel={t('split.deposit')} />
+        <Field value={deposit} onChangeText={setDeposit} keyboardType="decimal-pad" placeholder={formatMoney(0, currency, locale)} accessibilityLabel={t('split.deposit')} />
         <SectionLabel>{t('split.tenants')}</SectionLabel>
         {tenants.map((x, i) => (
           <View key={x.id} style={styles.tenant}>

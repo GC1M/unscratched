@@ -40,6 +40,8 @@ const CA_TEMPLATES: TemplateRoom[] = [
 
 export type Region = 'US' | 'UK' | 'CA';
 
+export const REGION_CURRENCY: Record<Region, string> = { US: 'USD', UK: 'GBP', CA: 'CAD' };
+
 export const REGION_TEMPLATES: Record<Region, TemplateRoom[]> = { US: ROOM_TEMPLATES, UK: UK_TEMPLATES, CA: CA_TEMPLATES };
 
 export interface ExpandedRoom {

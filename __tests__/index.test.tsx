@@ -27,6 +27,7 @@ const base: Inspection = {
   sent_at: null,
   sent_channel: null,
   deposit_split: null,
+  currency: null,
 };
 
 beforeEach(() => {

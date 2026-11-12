@@ -40,7 +40,7 @@ function depositRefund(t: T, c: Comparison, lang: Lang): { amount: string; html:
     return null;
   }
   if (!refunds) return null;
-  const money = (cents: number) => formatMoney(cents, pdfLocale(lang));
+  const money = (cents: number) => formatMoney(cents, c.moveOut.currency, pdfLocale(lang));
   const total = refunds.reduce((a, r) => a + r.refundCents, 0);
   const deductions = lines.length
     ? `\n<p>${t('letter.deductions', { total: money(lines.reduce((a, l) => a + l.cents, 0)) })}</p>

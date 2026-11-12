@@ -1,4 +1,4 @@
-import { parseDepositSplit, settleDeposit, type DepositSplit, type Tenant } from './depositSplit';
+import { formatMoney, parseDepositSplit, settleDeposit, type DepositSplit, type Tenant } from './depositSplit';
 
 const tenants = (...percents: (number | null)[]): Tenant[] => percents.map((percent, i) => ({ id: i + 1, name: `T${i + 1}`, percent }));
 const split = (depositCents: number | null, ts: Tenant[]): DepositSplit => ({ depositCents, tenants: ts, deductions: {} });
@@ -50,4 +50,12 @@ test('parse is tolerant of missing or broken JSON', () => {
   expect(parseDepositSplit(null)).toEqual({ depositCents: null, tenants: [], deductions: {} });
   expect(parseDepositSplit('{oops')).toEqual({ depositCents: null, tenants: [], deductions: {} });
   expect(parseDepositSplit('{"depositCents":5}')).toEqual({ depositCents: 5, tenants: [], deductions: {} });
+});
+
+test('formatMoney shows the currency symbol, and null means USD', () => {
+  expect(formatMoney(123450, 'USD', 'en')).toBe('$1,234.50');
+  expect(formatMoney(123450, 'GBP', 'en')).toBe('£1,234.50');
+  expect(formatMoney(123450, 'CAD', 'en')).toBe('CA$1,234.50');
+  expect(formatMoney(123450, null, 'en')).toBe('$1,234.50');
+  expect(formatMoney(0, 'USD', 'en')).toBe('$0.00');
 });

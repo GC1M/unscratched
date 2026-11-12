@@ -247,7 +247,7 @@ export default function RoomList() {
   const split = parseDepositSplit(inspection?.deposit_split ?? null);
   const splitMeta =
     split.depositCents != null
-      ? t('rooms.depositSplitMeta', { amount: formatMoney(split.depositCents, locale), n: split.tenants.length })
+      ? t('rooms.depositSplitMeta', { amount: formatMoney(split.depositCents, inspection?.currency ?? null, locale), n: split.tenants.length })
       : t('rooms.notSet');
 
   if (error || inspection === null)

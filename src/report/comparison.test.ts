@@ -20,6 +20,7 @@ const insp = (id: number, kind: Inspection['kind']): Inspection => ({
   sent_at: null,
   sent_channel: null,
   deposit_split: null,
+  currency: null,
 });
 
 let nextId = 1;
